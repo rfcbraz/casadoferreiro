@@ -209,42 +209,46 @@ async function syncRoomIcalFeed(roomId, source, url, label) {
     }
   });
 
-  await prisma.blockedDate.deleteMany({
-    where: { roomId, source },
-  });
-
   const dates = [...blockedDates].map(dateString => new Date(`${dateString}T00:00:00Z`));
 
-  if (dates.length === 0) {
-    return { roomId, source, synced: true, blockedDates: 0 };
-  }
+  // Apagar e recriar numa só transação: as datas importadas nunca ficam livres durante a sincronização
+  return prisma.$transaction(async transaction => {
+    await transaction.blockedDate.deleteMany({
+      where: { roomId, source },
+    });
 
-  const manualBlocks = await prisma.blockedDate.findMany({
-    where: {
-      roomId,
-      source: 'MANUAL',
-      date: { in: dates },
-    },
-    select: { date: true },
+    if (dates.length === 0) {
+      return { roomId, source, synced: true, blockedDates: 0 };
+    }
+
+    const manualBlocks = await transaction.blockedDate.findMany({
+      where: {
+        roomId,
+        source: 'MANUAL',
+        date: { in: dates },
+      },
+      select: { date: true },
+    });
+
+    const blockedManually = new Set(manualBlocks.map(b => dateKey(b.date)));
+    const createData = dates
+      .filter(date => !blockedManually.has(dateKey(date)))
+      .map(date => ({
+        id: randomUUID(),
+        roomId,
+        date,
+        reason: `${label} importado`,
+        source,
+        externalUid: `${source}:${dateKey(date)}`,
+      }));
+
+    if (createData.length > 0) {
+      // skipDuplicates: a mesma noite pode vir do Booking e do Airbnb
+      await transaction.blockedDate.createMany({ data: createData, skipDuplicates: true });
+    }
+
+    return { roomId, source, synced: true, blockedDates: createData.length };
   });
-
-  const blockedManually = new Set(manualBlocks.map(b => dateKey(b.date)));
-  const createData = dates
-    .filter(date => !blockedManually.has(dateKey(date)))
-    .map(date => ({
-      id: randomUUID(),
-      roomId,
-      date,
-      reason: `${label} importado`,
-      source,
-      externalUid: `${source}:${dateKey(date)}`,
-    }));
-
-  if (createData.length > 0) {
-    await prisma.blockedDate.createMany({ data: createData });
-  }
-
-  return { roomId, source, synced: true, blockedDates: createData.length };
 }
 
 async function syncExternalCalendars() {

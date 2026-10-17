@@ -182,6 +182,16 @@ async function main() {
       ADD COLUMN IF NOT EXISTS "priceBreakdown" JSONB;
   `);
 
+  // Segurança: data da última mudança de password e contactos guardados em cada reserva
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "Admin" ADD COLUMN IF NOT EXISTS "passwordChangedAt" TIMESTAMP;
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "Reservation"
+      ADD COLUMN IF NOT EXISTS "contactName" TEXT,
+      ADD COLUMN IF NOT EXISTS "contactPhone" TEXT;
+  `);
+
   // Lotação atual: T2 até 6 (cama extra insuflável e sofá), T3 até 8 (sofá-cama).
   // Só altera os valores antigos conhecidos, para não sobrescrever alterações feitas no painel.
   await prisma.$executeRawUnsafe(`
@@ -219,7 +229,7 @@ async function main() {
     if (!(await bcrypt.compare('admin1234', admin.password))) continue;
     if (strongPassword) {
       const hashedPassword = await bcrypt.hash(adminPassword, 12);
-      await prisma.$executeRaw`UPDATE "Admin" SET "password" = ${hashedPassword} WHERE "id" = ${admin.id}`;
+      await prisma.$executeRaw`UPDATE "Admin" SET "password" = ${hashedPassword}, "passwordChangedAt" = NOW() WHERE "id" = ${admin.id}`;
       console.log(`🔐 Password por omissão de ${admin.email} substituída por ADMIN_PASSWORD.`);
     } else {
       console.error(`🚨 ${admin.email} usa a password por omissão, que está bloqueada. Defina ADMIN_PASSWORD (mínimo 12 caracteres) e reinicie.`);

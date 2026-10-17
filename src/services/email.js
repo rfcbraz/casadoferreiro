@@ -67,6 +67,15 @@ function stayRows(reservation) {
         <div class="box-row"><span class="box-label">Check-out</span><span class="box-value">${formatDate(reservation.checkOut)}, ${CHECK_OUT_TIME}</span></div>`;
 }
 
+// Nome e telefone do pedido (reservas antigas só têm os do hóspede)
+function guestContact(reservation) {
+  return {
+    ...reservation.guest,
+    name: reservation.contactName || reservation.guest.name,
+    phone: reservation.contactPhone || reservation.guest.phone,
+  };
+}
+
 // Hóspedes por idade; reservas antigas só têm o total
 function partyLabel(reservation) {
   const groups = [
@@ -132,7 +141,8 @@ function baseTemplate(content) {
 }
 
 async function sendReservationConfirmation(reservation) {
-  const { guest, room } = reservation;
+  const { room } = reservation;
+  const guest = guestContact(reservation);
   const nights = reservation.nights;
 
   const html = baseTemplate(`
@@ -174,7 +184,8 @@ async function sendReservationConfirmation(reservation) {
 }
 
 async function sendReservationPaymentLink(reservation, checkoutUrl) {
-  const { guest, room } = reservation;
+  const { room } = reservation;
+  const guest = guestContact(reservation);
   const html = baseTemplate(`
     <div class="header">
       <h1>Casa do Ferreiro</h1>
@@ -208,7 +219,8 @@ async function sendReservationPaymentLink(reservation, checkoutUrl) {
 }
 
 async function sendReservationStatusUpdate(reservation, newStatus) {
-  const { guest, room } = reservation;
+  const { room } = reservation;
+  const guest = guestContact(reservation);
   const cancellationMessage = reservation.stripeRefundId
     ? 'A sua reserva foi cancelada e foi solicitado o reembolso integral do pagamento. O prazo para o valor ficar disponível depende do banco emissor.'
     : 'A sua reserva foi cancelada. Lamentamos qualquer inconveniente.';
@@ -252,7 +264,8 @@ async function sendReservationStatusUpdate(reservation, newStatus) {
 }
 
 async function sendAdminNotification(reservation) {
-  const { guest, room } = reservation;
+  const { room } = reservation;
+  const guest = guestContact(reservation);
   const { notes } = splitSpecialRequests(reservation.specialRequests);
 
   const html = baseTemplate(`

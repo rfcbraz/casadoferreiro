@@ -8,6 +8,7 @@ const { normalizeParty, validateParty, countedGuests, calculateQuote } = require
 const { loadPricing } = require('../lib/priceRules');
 const { blockedConflictWhere } = require('../lib/blockedDates');
 const { verifyTurnstile, TURNSTILE_ERROR } = require('../lib/turnstile');
+const { signCheckoutCancel, isValidCheckoutCancelSignature } = require('../lib/checkoutSignature');
 
 const MAX_PENDING_REQUESTS_PER_EMAIL = 3; // pedidos pendentes por email em 24 horas
 const { sendReservationConfirmation, sendReservationPaymentLink, sendReservationStatusUpdate, sendAdminNotification } = require('../services/email');
@@ -46,6 +47,14 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'O telefone deve ter entre 7 e 15 algarismos.' });
     }
     const validEmail = emailResult.data;
+    const guestName = typeof name === 'string' ? name.trim() : '';
+    if (!guestName || guestName.length > 100) {
+      return res.status(400).json({ error: 'Indique o seu nome (máximo 100 caracteres).' });
+    }
+    if (specialRequests !== undefined && specialRequests !== null
+      && (typeof specialRequests !== 'string' || specialRequests.length > 2000)) {
+      return res.status(400).json({ error: 'As observações não podem ter mais de 2000 caracteres.' });
+    }
 
     const turnstile = await verifyTurnstile(turnstileToken, req.ip);
     if (!turnstile.success) return res.status(403).json({ error: TURNSTILE_ERROR });
@@ -121,10 +130,12 @@ router.post('/', async (req, res, next) => {
         throw error;
       }
 
+      // Um pedido novo não altera os dados guardados de um hóspede existente:
+      // o nome e o telefone deste pedido ficam na própria reserva
       const guest = await transaction.guest.upsert({
         where: { email: validEmail },
-        update: { name, phone: normalizedPhone || undefined },
-        create: { name, email: validEmail, phone: normalizedPhone },
+        update: {},
+        create: { name: guestName, email: validEmail, phone: normalizedPhone },
       });
 
       return transaction.reservation.create({
@@ -141,6 +152,8 @@ router.post('/', async (req, res, next) => {
           totalPrice,
           breakfast: false,
           specialRequests: specialRequests || null,
+          contactName: guestName,
+          contactPhone: normalizedPhone,
           roomId,
           guestId: guest.id,
         },
@@ -177,6 +190,10 @@ router.post('/', async (req, res, next) => {
 // POST /api/reservations/:id/cancel-checkout — libertar uma sessão Stripe cancelada
 router.post('/:id/cancel-checkout', async (req, res, next) => {
   try {
+    // Exige a assinatura que o servidor pôs no link de regresso do Stripe
+    if (!isValidCheckoutCancelSignature(req.params.id, req.body?.sig)) {
+      return res.status(403).json({ error: 'Link de cancelamento inválido.' });
+    }
     const reservation = await prisma.reservation.findUnique({ where: { id: req.params.id } });
     if (!reservation || !['PENDING', 'AWAITING_PAYMENT'].includes(reservation.status)) {
       return res.status(404).json({ error: 'Pagamento pendente não encontrado.' });
@@ -277,7 +294,7 @@ async function approveReservationForPayment(reservation) {
     metadata: { reservationId: reservation.id },
     payment_intent_data: { metadata: { reservationId: reservation.id } },
     success_url: `${frontendUrl}/?payment=success&reservation=${reservation.id}`,
-    cancel_url: `${frontendUrl}/?payment=cancelled&reservation=${reservation.id}`,
+    cancel_url: `${frontendUrl}/?payment=cancelled&reservation=${reservation.id}&sig=${signCheckoutCancel(reservation.id)}`,
   });
 
   try {

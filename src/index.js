@@ -24,8 +24,13 @@ app.set('trust proxy', 1);
 
 // ── Segurança ──────────────────────────────────────────────
 app.use(helmet());
+// Domínios que podem usar a API a partir do browser (ALLOWED_ORIGINS separa por vírgulas)
+const allowedOrigins = (process.env.ALLOWED_ORIGINS
+  || 'https://rfcbraz.github.io,https://casadoferreirovn.pt,https://www.casadoferreirovn.pt,http://localhost:5500,http://127.0.0.1:5500')
+  .split(',').map(origin => origin.trim()).filter(Boolean);
 app.use(cors({
-  origin: '*',
+  // Pedidos sem Origin (Stripe, Booking/Airbnb, servidores) não passam pelo browser e não são afetados
+  origin: (origin, callback) => callback(null, !origin || allowedOrigins.includes(origin)),
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -116,8 +121,10 @@ app.use((req, res) => {
 // Error handler global
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(err.status || 500).json({
-    error: err.message || 'Erro interno do servidor.'
+  const status = err.status || err.statusCode || 500;
+  // Erros previstos (4xx) mostram a mensagem; erros internos não revelam detalhes técnicos
+  res.status(status).json({
+    error: status < 500 ? err.message : 'Ocorreu um erro inesperado. Tente novamente dentro de momentos.'
   });
 });
 

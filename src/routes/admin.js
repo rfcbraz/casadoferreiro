@@ -32,7 +32,7 @@ router.post('/login', async (req, res, next) => {
     const token = jwt.sign(
       { id: admin.id, email: admin.email, name: admin.name },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      { expiresIn: '12h' } // sessão do painel limitada a 12 horas
     );
 
     res.json({ token, admin: { id: admin.id, email: admin.email, name: admin.name } });
@@ -131,9 +131,10 @@ router.patch('/password', requireAuth, async (req, res, next) => {
     if (!valid) return res.status(401).json({ error: 'Password atual incorreta.' });
 
     const hashed = await bcrypt.hash(newPassword, 12);
-    await prisma.admin.update({ where: { id: req.admin.id }, data: { password: hashed } });
+    // Termina todas as sessões abertas noutros dispositivos
+    await prisma.admin.update({ where: { id: req.admin.id }, data: { password: hashed, passwordChangedAt: new Date() } });
 
-    res.json({ message: 'Password alterada com sucesso.' });
+    res.json({ message: 'Password alterada com sucesso. Inicie sessão novamente.' });
   } catch (err) { next(err); }
 });
 

@@ -3,6 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Casa do Ferreiro · Turismo Rural em Venda Nova, Gerês</title>
+<meta name="description" content="Casas de férias T2 e T3 em frente à Albufeira de Venda Nova, Montalegre, junto à Serra do Gerês. Reserve diretamente: até 8 hóspedes, praia privada, Wi-Fi e estacionamento gratuito.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Casa do Ferreiro">
+<meta property="og:title" content="Casa do Ferreiro · Turismo Rural em Venda Nova, Gerês">
+<meta property="og:description" content="Casas de férias T2 e T3 em frente à Albufeira de Venda Nova, junto à Serra do Gerês. Reserve diretamente.">
+<meta property="og:url" content="https://rfcbraz.github.io/casadoferreiro/">
+<meta property="og:image" content="https://rfcbraz.github.io/casadoferreiro/assets/images/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="pt_PT">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" as="image" href="assets/images/hero-reservoir.webp" type="image/webp" fetchpriority="high">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://casadaserra-production.up.railway.app" crossorigin>
 <script>
   document.documentElement.classList.add('intro-pending');
   window.introSafetyTimer = setTimeout(function () { document.documentElement.classList.remove('intro-pending'); }, 4000);
@@ -49,7 +65,7 @@ nav.scrolled .nav-toggle{border-color:rgba(42,33,24,.2);color:var(--dark)}
 .nav-toggle.is-open span::after{top:0;transform:rotate(-45deg)}
 
 .hero{height:auto;min-height:100vh;padding:6rem 0 4rem;position:relative;display:flex;align-items:center;overflow:hidden}
-.hero-bg{position:absolute;inset:0;background:linear-gradient(135deg,rgba(42,33,24,.3),rgba(42,33,24,.12)),url("assets/images/hero-reservoir.png") center 55%/cover no-repeat;z-index:0}
+.hero-bg{position:absolute;inset:0;background:linear-gradient(135deg,rgba(42,33,24,.3),rgba(42,33,24,.12)),url("assets/images/hero-reservoir.jpg") center 55%/cover no-repeat;background-image:linear-gradient(135deg,rgba(42,33,24,.3),rgba(42,33,24,.12)),image-set(url("assets/images/hero-reservoir.webp") type("image/webp"),url("assets/images/hero-reservoir.jpg") type("image/jpeg"));z-index:0}
 .hero-pattern{position:absolute;inset:0;opacity:.06;background-image:repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 0,transparent 50%);background-size:30px 30px;z-index:1}
 .hero-overlay{position:absolute;inset:0;background:linear-gradient(to right,rgba(42,33,24,.7) 0%,rgba(42,33,24,.2) 60%,transparent 100%);z-index:2}
 .hero-content{position:relative;z-index:3;padding:0 3rem;max-width:700px}
@@ -3139,7 +3155,7 @@ async function loadAdminStats() {
       } else {
         upcomingList.innerHTML = d.upcomingCheckIns.map(r => `
           <div class="admin-table-row" style="grid-template-columns:2fr 1.5fr 1fr 1fr">
-            <div><div class="admin-guest-name">${escapeAdminHtml(r.guest.name)}</div><div class="admin-guest-email">${escapeAdminHtml(r.guest.email)}</div></div>
+            <div><div class="admin-guest-name">${escapeAdminHtml(r.contactName || r.guest.name)}</div><div class="admin-guest-email">${escapeAdminHtml(r.guest.email)}</div></div>
             <div><span class="admin-room-badge">${escapeAdminHtml(r.room.name)}</span></div>
             <div style="font-size:.85rem">${new Date(r.checkIn).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})}</div>
             <div style="font-size:.85rem">${new Date(r.checkOut).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})}</div>
@@ -3167,7 +3183,7 @@ async function loadAdminReservations(statusFilter) {
     const statusClass = { PENDING: 'pending', AWAITING_PAYMENT: 'pending', CONFIRMED: 'confirmed', DECLINED: 'declined', CANCELLED: 'cancelled', PAID: 'confirmed', COMPLETED: 'confirmed' };
     tbody.innerHTML = data.reservations.map(r => `
       <div class="admin-table-row">
-        <div><div class="admin-guest-name">${escapeAdminHtml(r.guest.name)}</div><div class="admin-guest-email">${escapeAdminHtml(r.guest.email)}</div></div>
+        <div><div class="admin-guest-name">${escapeAdminHtml(r.contactName || r.guest.name)}</div><div class="admin-guest-email">${escapeAdminHtml(r.guest.email)}</div></div>
         <div><span class="admin-room-badge">${r.room.name}</span></div>
         <div style="font-size:.85rem">${new Date(r.checkIn).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})}</div>
         <div style="font-size:.85rem">${new Date(r.checkOut).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})}</div>
@@ -3866,11 +3882,16 @@ function showToast(msg) {
 const paymentParams = new URLSearchParams(window.location.search);
 const paymentResult = paymentParams.get('payment');
 const paymentReservationId = paymentParams.get('reservation');
+const paymentCancelSignature = paymentParams.get('sig');
 if (paymentResult === 'success') {
   showToast('Pagamento concluído. A confirmação da reserva será enviada por email.');
 } else if (paymentResult === 'cancelled') {
   if (paymentReservationId) {
-    fetch(`${API}/reservations/${paymentReservationId}/cancel-checkout`, { method: 'POST' })
+    fetch(`${API}/reservations/${encodeURIComponent(paymentReservationId)}/cancel-checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sig: paymentCancelSignature })
+    })
       .catch(err => console.error('Erro ao cancelar sessão de pagamento:', err));
   }
   showToast('Pagamento cancelado. Pode iniciar uma nova reserva.');

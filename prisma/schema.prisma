@@ -97,6 +97,8 @@ model Reservation {
   status          ReservationStatus @default(PENDING)
   breakfast       Boolean           @default(true)
   specialRequests String?
+  contactName     String? // nome indicado neste pedido
+  contactPhone    String? // telefone indicado neste pedido
   stripePaymentId String?
   stripeCheckoutSessionId String?   @unique
   stripeRefundId  String?           @unique
@@ -138,6 +140,7 @@ model Admin {
   email     String   @unique
   password  String
   name      String
+  passwordChangedAt DateTime? // sessões emitidas antes desta data deixam de ser válidas
   createdAt DateTime @default(now())
 }
 
