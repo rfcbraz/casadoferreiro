@@ -32,6 +32,8 @@ jobs:
           mkdir -p public
           cp index.html admin.html .nojekyll public/
           cp -R assets public/
+          # Versão nos links de CSS/JS: os browsers descarregam os ficheiros novos em cada publicação
+          sed -i "s/__BUILD__/${GITHUB_SHA::8}/g" public/*.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

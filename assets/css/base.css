@@ -1,0 +1,17 @@
+/* Casa do Ferreiro — base comum ao site e ao painel: cores, formulários e avisos */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --cream:#f5f0e8;--warm:#e8dcc8;--stone:#c4b49a;--earth:#8b7355;--dark:#2a2118;--darkm:#3d3020;
+  --accent:#c9893a;--accent2:#e8b87a;--text:#2a2118;--muted:#7a6d5a;--white:#fdfaf5;
+  --radius:4px;
+}
+body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--warm)}::-webkit-scrollbar-thumb{background:var(--stone)}
+.form-field{display:flex;flex-direction:column;gap:.4rem}
+.form-field.full{grid-column:1/-1}
+.form-field label{font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--earth)}
+.form-field input,.form-field select,.form-field textarea{background:var(--cream);border:1px solid var(--warm);border-radius:2px;padding:.75rem 1rem;font-family:'Jost',sans-serif;font-size:.9rem;color:var(--dark);outline:none;transition:border-color .2s;width:100%}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:var(--accent)}
+.form-field textarea{resize:vertical;min-height:80px}
+.toast{position:fixed;bottom:2rem;right:2rem;background:var(--dark);color:#fff;padding:1rem 1.5rem;border-radius:var(--radius);font-size:.85rem;z-index:999;transform:translateY(100px);opacity:0;transition:all .3s;border-left:3px solid var(--accent)}
+.toast.show{transform:translateY(0);opacity:1}
