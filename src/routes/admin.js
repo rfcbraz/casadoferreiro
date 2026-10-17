@@ -4,6 +4,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
 const { requireAuth } = require('../middleware/auth');
+const { getPortugalToday } = require('../lib/reservationRules');
+const { STAY_STATUSES, EXTERNAL_SOURCES, monthRange, stayNights, monthRevenue, monthOccupancy } = require('../lib/stats');
 const router = express.Router();
 
 // POST /api/admin/login
@@ -50,66 +52,66 @@ router.get('/me', requireAuth, (req, res) => {
   res.json({ admin: req.admin });
 });
 
-// GET /api/admin/stats — dashboard stats
+// GET /api/admin/stats — números do painel
 router.get('/stats', requireAuth, async (req, res, next) => {
   try {
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    const today = getPortugalToday(now);
+    const thisMonth = monthRange(today);
+    const lastMonth = monthRange(today, -1);
 
     const [
       totalReservations,
       pendingReservations,
-      monthRevenue,
-      lastMonthRevenue,
-      occupancyToday,
-      totalRooms,
+      rooms,
+      monthReservations,
+      externalBlocks,
       upcomingCheckIns,
     ] = await Promise.all([
-      prisma.reservation.count({ where: { status: { not: ['CANCELLED', 'DECLINED'] } } }),
+      prisma.reservation.count({ where: { status: { notIn: ['CANCELLED', 'DECLINED'] } } }),
       prisma.reservation.count({ where: { status: { in: ['PENDING', 'AWAITING_PAYMENT'] } } }),
-      prisma.reservation.aggregate({
-        where: { status: { in: ['CONFIRMED', 'PAID'] }, createdAt: { gte: startOfMonth } },
-        _sum: { totalPrice: true },
-      }),
-      prisma.reservation.aggregate({
-        where: { status: { in: ['CONFIRMED', 'PAID'] }, createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } },
-        _sum: { totalPrice: true },
-      }),
-      prisma.reservation.count({
-        where: {
-          status: { in: ['CONFIRMED', 'PAID'] },
-          checkIn: { lte: now },
-          checkOut: { gte: now },
-        },
-      }),
-      prisma.room.count({ where: { isActive: true } }),
+      prisma.room.findMany({ where: { isActive: true }, select: { id: true } }),
+      // Estadias com noites no mês anterior ou no atual
       prisma.reservation.findMany({
-        where: {
-          status: { in: ['CONFIRMED', 'PAID'] },
-          checkIn: { gte: now },
-        },
+        where: { status: { in: STAY_STATUSES }, checkIn: { lt: thisMonth.end }, checkOut: { gt: lastMonth.start } },
+        select: { roomId: true, status: true, checkIn: true, checkOut: true, totalPrice: true, priceBreakdown: true },
+      }),
+      prisma.blockedDate.findMany({
+        where: { source: { in: EXTERNAL_SOURCES }, date: { gte: thisMonth.start, lt: thisMonth.end } },
+        select: { roomId: true, source: true, date: true },
+      }),
+      prisma.reservation.findMany({
+        where: { status: { in: STAY_STATUSES }, checkIn: { gte: new Date(`${today}T00:00:00Z`) } },
         take: 5,
         orderBy: { checkIn: 'asc' },
         include: { room: true, guest: true },
       }),
     ]);
 
-    const monthRev = monthRevenue._sum.totalPrice || 0;
-    const lastMonthRev = lastMonthRevenue._sum.totalPrice || 0;
-    const revenueGrowth = lastMonthRev > 0
-      ? (((monthRev - lastMonthRev) / lastMonthRev) * 100).toFixed(1)
-      : null;
+    const roomIds = rooms.map(room => room.id);
+    const monthRev = monthRevenue(monthReservations, thisMonth);
+    const lastMonthRev = monthRevenue(monthReservations, lastMonth);
+    const occupancy = monthOccupancy(monthReservations, externalBlocks, roomIds, thisMonth);
+    const occupiedToday = new Set(monthReservations
+      .filter(reservation => stayNights(reservation).includes(today))
+      .map(reservation => reservation.roomId));
+    externalBlocks
+      .filter(block => block.date.toISOString().slice(0, 10) === today)
+      .forEach(block => occupiedToday.add(block.roomId));
 
     res.json({
       totalReservations,
       pendingReservations,
+      monthLabel: thisMonth.label,
+      lastMonthName: lastMonth.name,
       monthRevenue: monthRev,
-      revenueGrowth,
-      occupancyRate: totalRooms > 0 ? Math.round((occupancyToday / totalRooms) * 100) : 0,
-      occupancyToday,
-      totalRooms,
+      lastMonthRevenue: lastMonthRev,
+      revenueGrowth: lastMonthRev > 0 ? Number((((monthRev - lastMonthRev) / lastMonthRev) * 100).toFixed(1)) : null,
+      occupancyRate: occupancy.rate,
+      occupiedNights: occupancy.occupiedNights,
+      availableNights: occupancy.availableNights,
+      occupancyToday: [...occupiedToday].filter(id => roomIds.includes(id)).length,
+      totalRooms: roomIds.length,
       upcomingCheckIns,
     });
   } catch (err) { next(err); }

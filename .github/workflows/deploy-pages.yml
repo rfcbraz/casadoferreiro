@@ -30,7 +30,7 @@ jobs:
       - name: Prepare pages artifact
         run: |
           mkdir -p public
-          cp index.html .nojekyll public/
+          cp index.html admin.html .nojekyll public/
           cp -R assets public/
 
       - name: Upload artifact

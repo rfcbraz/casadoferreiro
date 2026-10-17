@@ -1,197 +1,107 @@
-# 🏡 Casa do Ferreiro — Backend API
+# Casa do Ferreiro
 
-Backend Node.js + PostgreSQL para o sistema de reservas da Casa do Ferreiro.
+Site e sistema de reservas da Casa do Ferreiro: duas casas de férias (T2 e T3) em Venda Nova, Montalegre.
 
----
+| Parte | Onde está | Publicação |
+|---|---|---|
+| Site público | [`index.html`](index.html) + [`assets/`](assets/) | GitHub Pages, automático em cada push para `main` |
+| Painel de gestão | [`admin.html`](admin.html) | GitHub Pages (mesmo workflow) |
+| API e base de dados | [`src/`](src/), Prisma + PostgreSQL | Railway, automático em cada push para `main` |
 
-## Stack
-
-- **Node.js** + **Express** — servidor HTTP
-- **PostgreSQL** — base de dados
-- **Prisma** — ORM (queries, migrações, seed)
-- **JWT** — autenticação do painel admin
-- **Nodemailer** — emails de confirmação
-- **Stripe** — pagamentos online
-- **Helmet + Rate Limit** — segurança
+- Site: <https://rfcbraz.github.io/casadoferreiro/> (domínio final previsto: `casadoferreirovn.pt`)
+- Painel: <https://rfcbraz.github.io/casadoferreiro/admin.html> (também pelo ⚙ no rodapé do site)
+- API: <https://casadaserra-production.up.railway.app/api>
 
 ---
 
-## Instalação local
+## Como funciona uma reserva
 
-### 1. Instalar dependências
+1. O hóspede escolhe as datas no calendário (só aparecem como livres as datas reserváveis) e envia o pedido com as idades das pessoas.
+2. O pedido fica **pendente** e o proprietário recebe um email.
+3. No painel, o proprietário **aceita** ou **recusa**. Ao aceitar, o hóspede recebe um link de pagamento Stripe (válido 35 minutos).
+4. Quando o Stripe confirma o pagamento, a reserva passa a **paga** e ambos recebem confirmação.
+
+Regras principais:
+- Estadia mínima de 2 noites; check-in a partir das 16:00, check-out até às 11:00.
+- Reservas para o próprio dia até às 22:00 (hora de Portugal).
+- O mesmo dia pode ter a saída de uma reserva e a entrada de outra. Um dia **bloqueado no painel** fica fechado o dia inteiro (sem entradas nem saídas).
+- Datas ocupadas no Booking.com/Airbnb são importadas por iCal e bloqueiam as noites correspondentes.
+
+## Preços
+
+Calculados no servidor ([`src/lib/pricing.js`](src/lib/pricing.js)) e configurados no separador **Preços** do painel:
+
+- Preço de cada noite: **feriado** → **época** (com preço de fim de semana às sextas e sábados) → **preço base** da unidade.
+- Pessoas incluídas no preço (T2: 4, T3: 6). Por pessoa a menos aplica-se um desconto em %; por pessoa a mais um valor por noite.
+- Crianças dos 3 aos 6 anos contam como meia pessoa; bebés (0–2) pagam só o berço por noite.
+- **Promoções**: desconto em % nas noites abrangidas, com mínimo de noites; vale a de maior desconto. Quando há promoções ativas, o site mostra um aviso ao abrir.
+
+## Painel de gestão
+
+Entrar em `admin.html` com o email e a password do administrador (`ADMIN_EMAIL` / `ADMIN_PASSWORD` no Railway). A página não aparece nos motores de busca e a sessão dura no máximo 12 horas; mudar a password termina todas as sessões abertas.
+
+| Separador | Para quê |
+|---|---|
+| Reservas | Aceitar, recusar, cancelar e apagar pedidos; resumo do mês |
+| Quartos | Dados de cada unidade e links iCal do Booking.com/Airbnb |
+| Disponibilidade | Bloquear ou desbloquear dias (um ou vários intervalos, de hoje em diante) |
+| Preços | Preço base, pessoas, épocas, feriados, promoções e simulador |
+| Estatísticas | Receita e ocupação do mês, próximas chegadas |
+
+Ocupação do mês = noites ocupadas (reservas + Booking.com/Airbnb) ÷ noites disponíveis das unidades ativas. Receita do mês = valor das noites de estadia que caem nesse mês (não a data do pedido).
+
+---
+
+## Variáveis de ambiente (Railway → Variables)
+
+Nunca colocar valores reais neste repositório: é público. O modelo está em [`.env.example`](.env.example).
+
+| Variável | Obrigatória | Para quê |
+|---|---|---|
+| `DATABASE_URL` | sim | Gerada pelo Railway (PostgreSQL) |
+| `JWT_SECRET` | sim | Assina as sessões do painel e os links de cancelamento de pagamento. Texto longo e aleatório |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | sim | Conta do painel (password com 12+ caracteres). Criada no arranque se não existir |
+| `RESEND_API_KEY` | sim | Envio de emails pela API do Resend (o Railway bloqueia SMTP) |
+| `EMAIL_FROM` | sim | Remetente, com o domínio verificado no Resend (ex.: `Casa do Ferreiro <reservas@casadoferreirovn.pt>`) |
+| `NOTIFICATION_EMAIL` | não | Quem recebe pedidos e mensagens de contacto (por omissão `reservas@casadoferreirovn.pt`) |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | sim | Pagamentos. Webhook em `/webhooks/stripe` com `payment_intent.succeeded` e `checkout.session.expired` |
+| `TURNSTILE_SECRET_KEY` | sim | Verificação anti-robô (Cloudflare Turnstile) nos formulários |
+| `FRONTEND_URL` | sim | Endereço do site, usado nos links de pagamento e nos emails |
+| `ALLOWED_ORIGINS` | não | Sites autorizados a usar a API (por omissão: GitHub Pages, `casadoferreirovn.pt` e `localhost:5500`) |
+| `CHECKOUT_LINK_SECRET` | não | Chave própria para os links de cancelamento (por omissão usa `JWT_SECRET`) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | não | Alternativa ao Resend, só fora do Railway |
+| `NODE_ENV` | sim | `production` |
+
+---
+
+## Publicação
+
+**Site e painel (GitHub Pages)** — o workflow [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml) copia `index.html`, `admin.html` e `assets/` em cada push para `main`.
+
+**API (Railway)** — deploy automático em cada push para `main`. O arranque ([`start.js`](start.js)) corre [`setup-db.js`](setup-db.js), que cria ou atualiza as tabelas e colunas necessárias; não é preciso correr migrações à mão.
+
+### Passagem para `casadoferreirovn.pt`
+
+1. Apontar o domínio para o novo alojamento (ou configurar domínio próprio no GitHub Pages).
+2. No `index.html`, atualizar `og:url` e `og:image` para o novo endereço.
+3. No Railway, mudar `FRONTEND_URL` para `https://casadoferreirovn.pt`.
+4. Confirmar que o domínio está nos hostnames do Turnstile (Cloudflare) e no webhook/URLs do Stripe, se aplicável.
+5. `ALLOWED_ORIGINS` já inclui `casadoferreirovn.pt` e `www.casadoferreirovn.pt`.
+
+---
+
+## Desenvolvimento local
+
 ```bash
 npm install
+cp .env.example .env   # preencher com valores de teste
+npm run db:check       # testa a ligação à base de dados
+npm run dev            # API em http://localhost:3001
+node --test src/lib/*.test.js
 ```
 
-### 2. Configurar variáveis de ambiente
-```bash
-cp .env.example .env
-```
-Edita o `.env` com os teus dados (base de dados, email, Stripe).
-
-### 3. Preparar o PostgreSQL
-
-#### Opção A — PostgreSQL local
-Se ainda não tens PostgreSQL instalado:
-- **Windows (pgAdmin / PostgreSQL installer)**: instala o PostgreSQL e cria uma base de dados chamada `casadaserra`
-- **macOS**: `brew install postgresql`
-- **Ubuntu**: `sudo apt install postgresql`
-
-Depois cria a base de dados:
-```bash
-createdb casadaserra
-```
-
-No `.env`, usa algo como:
-```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/casadaserra?schema=public"
-```
-
-Se estiveres a usar um utilizador diferente, substitui `postgres` pelo teu nome de utilizador e a password pela tua password.
-
-#### Opção B — Railway
-Se preferires usar o Railway, copia o `DATABASE_URL` que o Railway gera para o teu projeto para o `.env`.
-
-### 4. Verificar a ligação à base de dados
-```bash
-npm run db:check
-```
-
-### 5. Criar as tabelas e popular dados iniciais
-```bash
-npm run db:setup
-```
-
-### 6. Iniciar o servidor
-```bash
-npm run dev       # desenvolvimento (hot reload)
-npm start         # produção
-```
-
-O servidor arranca em `http://localhost:3001`.
-
----
-
-## API — Endpoints
-
-### Público
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/health` | Health check |
-| GET | `/api/rooms` | Lista unidades ativas |
-| GET | `/api/rooms/:id` | Detalhes de uma unidade |
-| GET | `/api/availability?checkIn=&checkOut=` | Unidades disponíveis |
-| GET | `/api/availability/room/:id?year=&month=` | Datas ocupadas de uma unidade |
-| POST | `/api/reservations` | Enviar pedido de reserva para aprovação do proprietário |
-| POST | `/api/reservations/:id/cancel-checkout` | Cancelar um Checkout não pago e libertar as datas |
-| GET | `/api/reservations/:id` | Consultar reserva |
-| GET | `/ical/:roomId.ics` | Exportar calendário iCal da unidade |
-
-O proprietário aceita apenas estadias de, no mínimo, duas noites consecutivas. A regra é aplicada tanto na pesquisa de disponibilidade como na criação e confirmação de reservas.
-
-O proprietário aprova ou recusa cada pedido no backoffice. Após a aprovação, o hóspede recebe por email um link Stripe Checkout para pagamento integral por cartão, válido por 35 minutos. O estado passa a `PAID` apenas após o webhook `payment_intent.succeeded`; cancelamentos de reservas pagas iniciam um reembolso integral idempotente. Configura `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` e `FRONTEND_URL` no ambiente do servidor e aponta o webhook Stripe para `/webhooks/stripe`, com os eventos `payment_intent.succeeded` e `checkout.session.expired`. Aplica as migrações com `npm run db:migrate` antes de publicar esta versão.
+Para abrir o site localmente, usar um servidor em `http://localhost:5500` (por exemplo, a extensão Live Server do VS Code). Abrir o `index.html` diretamente no browser (`file://`) não funciona: a API só aceita pedidos dos endereços autorizados.
 
 ## Booking.com
 
-O projeto tem feeds iCal de disponibilidade, mas a integração com a API oficial da Booking.com ainda depende de acesso aprovado à Connectivity API e credenciais da propriedade. Sem esse acesso, não é possível sincronizar reservas completas nem fazer alterações de disponibilidade em tempo real.
-
-### Admin (requer token JWT)
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| POST | `/api/admin/login` | Login |
-| GET | `/api/admin/me` | Dados do admin |
-| GET | `/api/admin/stats` | Estatísticas do dashboard |
-| GET | `/api/reservations` | Listar reservas |
-| PATCH | `/api/reservations/:id/status` | Atualizar estado |
-| DELETE | `/api/reservations/:id/record` | Apagar reserva aceite (antes do pagamento) ou recusada |
-| DELETE | `/api/reservations/:id` | Cancelar reserva |
-| POST | `/api/rooms` | Criar quarto |
-| GET | `/api/rooms/admin` | Listar todas as unidades, incluindo inativas |
-| PATCH | `/api/rooms/:id` | Editar quarto |
-| DELETE | `/api/rooms/:id` | Desativar quarto |
-| POST | `/api/availability/block` | Bloquear datas |
-| DELETE | `/api/availability/block` | Desbloquear datas |
-| GET | `/ical/:roomId.ics` | Exportar calendário iCal da unidade |
-
-### Exemplo — Criar reserva
-```bash
-curl -X POST http://localhost:3001/api/reservations \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "João Silva",
-    "email": "joao@email.com",
-    "phone": "+351960000000",
-    "roomId": "uuid-do-quarto",
-    "checkIn": "2026-06-01",
-    "checkOut": "2026-06-04",
-    "guests": 2
-  }'
-```
-
-### Exemplo — Login admin
-```bash
-curl -X POST http://localhost:3001/api/admin/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "admin@casadaserra.pt", "password": "a-tua-password"}'
-```
-
----
-
-## Publicação no GitHub Pages
-
-Este repositório já inclui um workflow em [.github/workflows/deploy-pages.yml](.github/workflows/deploy-pages.yml) para publicar o site estático em GitHub Pages sempre que houver push para `main`.
-
-Depois do push, ativa o GitHub Pages no GitHub:
-1. Vai a `Settings` → `Pages`.
-2. Em `Build and deployment`, escolhe `GitHub Actions`.
-3. O site ficará disponível em `https://<utilizador>.github.io/<repositório>/` após a primeira execução do workflow.
-
----
-
-## Deploy no Railway (recomendado)
-
-1. Cria conta em [railway.app](https://railway.app)
-2. Cria um novo projeto → **"Deploy from GitHub repo"**
-3. Adiciona um plugin **PostgreSQL** ao projeto
-4. Em **Variables**, copia o conteúdo do `.env.example` e preenche
-   - O `DATABASE_URL` é gerado automaticamente pelo Railway
-5. Railway faz deploy automático em cada `git push`
-
-O comando `npm start` executa `setup-db.js`, que mantém os campos de pagamento e o estado `AWAITING_PAYMENT` da tabela de reservas compatíveis com a versão atual. Continua a aplicar `npm run db:migrate` no deploy para executar as restantes migrações.
-
-### Variáveis obrigatórias no Railway
-```
-DATABASE_URL        → gerado automaticamente
-JWT_SECRET          → string aleatória longa
-ADMIN_EMAIL         → o teu email
-ADMIN_PASSWORD      → password segura
-SMTP_HOST/USER/PASS → configuração de email
-NOTIFICATION_EMAIL → email que recebe os novos pedidos e as mensagens de contacto (opcional; por omissão reservas@casadoferreirovn.pt)
-FRONTEND_URL        → URL do teu site
-NODE_ENV            → production
-```
-
-Após o deploy, corre o seed uma vez:
-```bash
-railway run npm run db:seed
-```
-
----
-
-## Emails (configuração Gmail)
-
-1. Ativa a **Verificação em 2 passos** na conta Google
-2. Em [myaccount.google.com](https://myaccount.google.com) → Segurança → **App Passwords**
-3. Gera uma password para "Mail"
-4. Usa essa password em `SMTP_PASS` no `.env`
-
----
-
-## Próximos passos
-
-- [ ] Integração Stripe (pagamentos)
-- [ ] Painel admin completo no frontend
-- [x] Sincronização com iCal (Airbnb/Booking)
-- [ ] Multi-idioma nos emails
+A disponibilidade é sincronizada por iCal (importação e exportação em `/ical/:roomId.ics`). A sincronização de preços e reservas em tempo real exige acesso à Connectivity API da Booking.com ou um channel manager.
