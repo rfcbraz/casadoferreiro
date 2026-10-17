@@ -8,8 +8,8 @@ Site e sistema de reservas da Casa do Ferreiro: duas casas de férias (T2 e T3) 
 | Painel de gestão | [`admin.html`](admin.html) | GitHub Pages (mesmo workflow) |
 | API e base de dados | [`src/`](src/), Prisma + PostgreSQL | Railway, automático em cada push para `main` |
 
-- Site: <https://rfcbraz.github.io/casadoferreiro/> (domínio final previsto: `casadoferreirovn.pt`)
-- Painel: <https://rfcbraz.github.io/casadoferreiro/admin.html> (também pelo ⚙ no rodapé do site)
+- Site: <https://casadoferreirovn.pt> (o endereço antigo `rfcbraz.github.io/casadoferreiro` redireciona para aqui)
+- Painel: <https://casadoferreirovn.pt/admin.html> (também pelo ⚙ no rodapé do site)
 - API: <https://casadaserra-production.up.railway.app/api>
 
 ---
@@ -80,13 +80,16 @@ Nunca colocar valores reais neste repositório: é público. O modelo está em [
 
 **API (Railway)** — deploy automático em cada push para `main`. O arranque ([`start.js`](start.js)) corre [`setup-db.js`](setup-db.js), que cria ou atualiza as tabelas e colunas necessárias; não é preciso correr migrações à mão.
 
-### Passagem para `casadoferreirovn.pt`
+### Domínio `casadoferreirovn.pt`
 
-1. Apontar o domínio para o novo alojamento (ou configurar domínio próprio no GitHub Pages).
-2. No `index.html`, atualizar `og:url` e `og:image` para o novo endereço.
-3. No Railway, mudar `FRONTEND_URL` para `https://casadoferreirovn.pt`.
-4. Confirmar que o domínio está nos hostnames do Turnstile (Cloudflare) e no webhook/URLs do Stripe, se aplicável.
-5. `ALLOWED_ORIGINS` já inclui `casadoferreirovn.pt` e `www.casadoferreirovn.pt`.
+O site é servido pelo GitHub Pages com domínio próprio (Settings → Pages → Custom domain, HTTPS obrigatório; certificado renovado automaticamente pelo GitHub). Zona DNS na Amen:
+
+| Nome | Tipo | Valor |
+|---|---|---|
+| `casadoferreirovn.pt` | A | `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153` |
+| `www.casadoferreirovn.pt` | CNAME | `rfcbraz.github.io.` |
+
+Os registos de email (MX, SPF, DKIM da securemail e do Resend, `send`) são independentes e não devem ser alterados. No Railway, `FRONTEND_URL` deve ser `https://casadoferreirovn.pt`.
 
 ---
 
