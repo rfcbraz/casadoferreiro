@@ -6,6 +6,7 @@ const { MINIMUM_STAY_NIGHTS, CHECK_IN_DATE_ERROR, getPortugalToday, isCheckInDat
 const { normalizeParty, calculateQuote } = require('../lib/pricing');
 const { loadPricing } = require('../lib/priceRules');
 const { blockedConflictWhere } = require('../lib/blockedDates');
+const { publicRoom } = require('../lib/publicRoom');
 const router = express.Router();
 
 // GET /api/availability?checkIn=YYYY-MM-DD&checkOut=YYYY-MM-DD
@@ -77,7 +78,7 @@ router.get('/', async (req, res, next) => {
         : normalizeParty({ adults: room.baseOccupancy ?? room.capacity });
       const { rules, promotions } = await loadPricing(prisma, room.id, checkIn, checkOut);
       const quote = calculateQuote(room, rules, checkIn, checkOut, party, promotions);
-      return { ...room, totalPrice: quote.total, quote };
+      return { ...publicRoom(room), totalPrice: quote.total, quote };
     }));
 
     res.json({

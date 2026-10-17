@@ -4,6 +4,7 @@ const prisma = require('../lib/prisma');
 const { requireAuth } = require('../middleware/auth');
 const { normalizeParty, validateParty, calculateQuote } = require('../lib/pricing');
 const { loadPricing } = require('../lib/priceRules');
+const { publicRoom } = require('../lib/publicRoom');
 const router = express.Router();
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -15,7 +16,7 @@ router.get('/', async (req, res, next) => {
       where: { isActive: true },
       orderBy: { pricePerNight: 'asc' },
     });
-    res.json(rooms);
+    res.json(rooms.map(publicRoom));
   } catch (err) { next(err); }
 });
 
@@ -198,7 +199,7 @@ router.get('/:id', async (req, res, next) => {
   try {
     const room = await prisma.room.findUnique({ where: { id: req.params.id } });
     if (!room) return res.status(404).json({ error: 'Quarto não encontrado.' });
-    res.json(room);
+    res.json(publicRoom(room));
   } catch (err) { next(err); }
 });
 

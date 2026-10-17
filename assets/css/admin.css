@@ -105,3 +105,8 @@ a.admin-close{display:block;text-align:center;text-decoration:none}
   .admin-table{overflow-x:auto}
   .admin-table-header,.admin-table-row{min-width:760px}
   #admin-tab-availability>div{grid-template-columns:1fr!important}
+}
+.ical-group{border-top:1px solid var(--warm);padding-top:1rem;display:grid;gap:.75rem}
+.ical-group h4{font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.ical-copy{display:flex;gap:.5rem}
+.ical-copy input{flex:1;min-width:0;font-size:.78rem!important;color:var(--muted)!important}

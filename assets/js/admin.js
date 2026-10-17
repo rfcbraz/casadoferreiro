@@ -321,8 +321,26 @@ function openEditRoom(id) {
   document.getElementById('edit-room-amenities').value = (room.amenities || []).join(', ');
   document.getElementById('edit-room-booking-ical').value = room.bookingIcalUrl || '';
   document.getElementById('edit-room-airbnb-ical').value = room.airbnbIcalUrl || '';
+  document.getElementById('edit-room-export-booking').value = icalExportUrl(room.id, 'booking');
+  document.getElementById('edit-room-export-airbnb').value = icalExportUrl(room.id, 'airbnb');
   document.getElementById('edit-room-active').value = String(room.isActive);
   document.getElementById('edit-room-modal').style.display = 'flex';
+}
+
+// Calendário que o Booking/Airbnb lê (sem as noites que vieram dessa mesma plataforma)
+function icalExportUrl(roomId, platform) {
+  return `${API.replace(/\/api$/, '')}/ical/${roomId}.ics?para=${platform}`;
+}
+
+async function copyIcalLink(inputId) {
+  const input = document.getElementById(inputId);
+  try {
+    await navigator.clipboard.writeText(input.value);
+  } catch (err) {
+    input.select();
+    document.execCommand('copy');
+  }
+  showToast('✓ Link copiado.');
 }
 
 function closeEditRoom() {

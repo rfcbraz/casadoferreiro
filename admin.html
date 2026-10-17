@@ -89,8 +89,16 @@
           </div>
           <div class="form-field" style="grid-column:1/-1"><label>Descrição</label><textarea id="edit-room-desc" style="min-height:80px;background:var(--cream);border:1px solid var(--warm);border-radius:2px;padding:.75rem 1rem;font-family:'Jost',sans-serif;font-size:.9rem;width:100%;outline:none;resize:vertical"></textarea></div>
           <div class="form-field" style="grid-column:1/-1"><label>Comodidades (separadas por vírgula)</label><input type="text" id="edit-room-amenities"></div>
-          <div class="form-field" style="grid-column:1/-1"><label>URL iCal Booking.com</label><input type="text" id="edit-room-booking-ical"></div>
-          <div class="form-field" style="grid-column:1/-1"><label>URL iCal Airbnb</label><input type="text" id="edit-room-airbnb-ical"></div>
+          <div class="ical-group" style="grid-column:1/-1">
+            <h4>Importar (colar aqui o link de exportação de cada plataforma)</h4>
+            <div class="form-field"><label for="edit-room-booking-ical">Link iCal do Booking.com</label><input type="url" id="edit-room-booking-ical" placeholder="https://admin.booking.com/hotel/hoteladmin/ical.html?t=…"></div>
+            <div class="form-field"><label for="edit-room-airbnb-ical">Link iCal do Airbnb</label><input type="url" id="edit-room-airbnb-ical" placeholder="https://www.airbnb.pt/calendar/ical/….ics?s=…"></div>
+          </div>
+          <div class="ical-group" style="grid-column:1/-1">
+            <h4>Exportar (copiar para cada plataforma)</h4>
+            <div class="form-field"><label for="edit-room-export-booking">Colar no Booking.com</label><div class="ical-copy"><input type="text" id="edit-room-export-booking" readonly><button type="button" class="admin-action" onclick="copyIcalLink('edit-room-export-booking')">Copiar</button></div></div>
+            <div class="form-field"><label for="edit-room-export-airbnb">Colar no Airbnb</label><div class="ical-copy"><input type="text" id="edit-room-export-airbnb" readonly><button type="button" class="admin-action" onclick="copyIcalLink('edit-room-export-airbnb')">Copiar</button></div></div>
+          </div>
         </div>
         <div style="display:flex;gap:1rem;margin-top:1.5rem">
           <button onclick="saveRoom()" style="flex:1;background:var(--accent);color:#fff;border:none;padding:.85rem;font-family:'Jost',sans-serif;font-size:.85rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border-radius:2px">Guardar</button>
