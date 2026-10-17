@@ -860,7 +860,7 @@ function renderMonthReservations() {
     html += `<div style="margin-bottom:.75rem"><strong style="font-size:.78rem;color:var(--dark)">${occupied.length} dia(s) reservado(s)</strong></div>`;
   }
   if (blocked.length > 0) {
-    html += `<div><strong style="font-size:.78rem;color:var(--dark)">${blocked.length} dia(s) bloqueado(s):</strong><div style="margin-top:.4rem">${blocked.map(date => `<span style="display:inline-block;background:#fef9c3;color:#854d0e;font-size:.75rem;padding:.2rem .6rem;border-radius:2px;margin:.2rem">${formatAdminShortDate(date)}</span>`).join('')}</div></div>`;
+    html += `<div><strong style="font-size:.78rem;color:var(--dark)">${blocked.length} dia(s) bloqueado(s):</strong><div style="margin-top:.4rem">${blocked.map(date => `<span style="display:inline-block;background:#5a1d1d;color:#f3dede;font-size:.75rem;padding:.2rem .6rem;border-radius:2px;margin:.2rem">${formatAdminShortDate(date)}</span>`).join('')}</div></div>`;
   }
   el.innerHTML = html;
 }

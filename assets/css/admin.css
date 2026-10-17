@@ -52,7 +52,7 @@ a.admin-close{display:block;text-align:center;text-decoration:none}
 #admin-cal-grid{user-select:none}
 .admin-cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:.8rem;cursor:pointer;border-radius:2px;border:1px solid transparent;transition:background .15s;font-family:Jost,sans-serif}
 .admin-cal-day.free{background:#dcfce7;color:#166534}
-.admin-cal-day.blocked{background:#fef9c3;color:#854d0e}
+.admin-cal-day.blocked{background:#5a1d1d;color:#f3dede}
 .admin-cal-day.reserved{background:#fee2e2;color:#991b1b}
 .admin-cal-day.past{background:transparent;color:#c9c2b8;cursor:not-allowed;text-decoration:line-through}
 .admin-cal-day.selected{background:var(--accent);color:#fff}
