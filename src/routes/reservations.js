@@ -11,14 +11,17 @@ const { verifyTurnstile, TURNSTILE_ERROR } = require('../lib/turnstile');
 const { signCheckoutCancel, isValidCheckoutCancelSignature } = require('../lib/checkoutSignature');
 
 const MAX_PENDING_REQUESTS_PER_EMAIL = 3; // pedidos pendentes por email em 24 horas
+// Validade do link de pagamento: o Stripe aceita no máximo 24 h; 5 min de margem para diferenças de relógio
+const PAYMENT_LINK_MS = 24 * 60 * 60 * 1000 - 5 * 60 * 1000;
 const { sendReservationConfirmation, sendReservationPaymentLink, sendReservationStatusUpdate, sendAdminNotification } = require('../services/email');
 const { getStripeClient, refundPaymentIntent } = require('../services/stripe');
+const { normalizeLocale, emailText } = require('../services/emailText');
 const router = express.Router();
 
 // POST /api/reservations — criar reserva (público)
 router.post('/', async (req, res, next) => {
   try {
-    const { name, email, phone, roomId, checkIn, checkOut, guests, specialRequests, website, turnstileToken } = req.body;
+    const { name, email, phone, roomId, checkIn, checkOut, guests, specialRequests, website, turnstileToken, language } = req.body;
     // Campo escondido anti-robô: pessoas não o preenchem
     if (website) return res.status(400).json({ error: 'Pedido inválido.' });
     // Idades: adultos (18+), 7–17, 3–6 e bebés (0–2). Pedidos antigos só com "guests" contam como adultos.
@@ -143,6 +146,7 @@ router.post('/', async (req, res, next) => {
           specialRequests: specialRequests || null,
           contactName: guestName,
           contactPhone: normalizedPhone,
+          locale: normalizeLocale(language),
           roomId,
           guestId: guest.id,
         },
@@ -250,7 +254,7 @@ async function approveReservationForPayment(reservation) {
   }
 
   const stripe = getStripeClient();
-  const paymentExpiresAt = new Date(Date.now() + 35 * 60 * 1000);
+  const paymentExpiresAt = new Date(Date.now() + PAYMENT_LINK_MS);
   const frontendUrl = process.env.FRONTEND_URL.replace(/\/$/, '');
 
   if (reservation.stripeCheckoutSessionId) {
@@ -265,8 +269,11 @@ async function approveReservationForPayment(reservation) {
     }
   }
 
+  const locale = normalizeLocale(reservation.locale);
+  const text = emailText(locale);
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: 'payment',
+    locale, // página de pagamento no idioma do hóspede
     payment_method_types: ['card'],
     customer_email: reservation.guest.email,
     client_reference_id: reservation.id,
@@ -275,8 +282,8 @@ async function approveReservationForPayment(reservation) {
       price_data: {
         currency: 'eur',
         product_data: {
-          name: `Reserva ${reservation.room.name} - ${reservation.nights} noites`,
-          description: `${reservation.checkIn.toISOString().slice(0, 10)} a ${reservation.checkOut.toISOString().slice(0, 10)}`,
+          name: text.stripeProduct(reservation.room.name, reservation.nights),
+          description: text.stripeDates(reservation.checkIn.toISOString().slice(0, 10), reservation.checkOut.toISOString().slice(0, 10)),
         },
         unit_amount: Math.round(reservation.totalPrice * 100),
       },

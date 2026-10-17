@@ -1220,7 +1220,7 @@ async function showActivePromotions() {
     renderPromoModal(promotions);
     clearTimeout(window.introSafetyTimer); // o título fica escondido até o pop-up fechar
     document.getElementById('promo-modal').classList.add('open');
-    document.querySelector('#promo-modal .modal-close-btn').focus();
+    document.querySelector('#promo-modal .promo-modal-content').focus();
   } catch (err) {
     startIntroAnimations();
   }
@@ -1635,7 +1635,7 @@ async function confirmBooking() {
     const res = await fetch(`${API}/reservations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, phone, roomId, checkIn, checkOut, ...party, specialRequests: reservationNotes, website, turnstileToken })
+      body: JSON.stringify({ name, email, phone, roomId, checkIn, checkOut, ...party, specialRequests: reservationNotes, website, turnstileToken, language: currentLanguage })
     });
 
     const data = await res.json();

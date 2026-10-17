@@ -191,6 +191,10 @@ async function main() {
       ADD COLUMN IF NOT EXISTS "contactName" TEXT,
       ADD COLUMN IF NOT EXISTS "contactPhone" TEXT;
   `);
+  // Idioma em que o hóspede preencheu o formulário (emails no mesmo idioma)
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "Reservation" ADD COLUMN IF NOT EXISTS "locale" TEXT NOT NULL DEFAULT 'pt';
+  `);
 
   // Lotação atual: T2 até 6 (cama extra insuflável e sofá), T3 até 8 (sofá-cama).
   // Só altera os valores antigos conhecidos, para não sobrescrever alterações feitas no painel.

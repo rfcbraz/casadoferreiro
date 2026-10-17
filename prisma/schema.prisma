@@ -99,6 +99,7 @@ model Reservation {
   specialRequests String?
   contactName     String? // nome indicado neste pedido
   contactPhone    String? // telefone indicado neste pedido
+  locale          String   @default("pt") // idioma dos emails para o hóspede (pt, en, es)
   stripePaymentId String?
   stripeCheckoutSessionId String?   @unique
   stripeRefundId  String?           @unique

@@ -1,5 +1,6 @@
 // src/services/email.js
 const nodemailer = require('nodemailer');
+const { DATE_LOCALES, LANGUAGE_NAMES, normalizeLocale, emailText } = require('./emailText');
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -33,17 +34,22 @@ async function sendMail({ from, to, replyTo, subject, html }) {
   return transporter.sendMail({ from, to, replyTo, subject, html });
 }
 
-function formatDate(date) {
-  return new Date(date).toLocaleDateString('pt-PT', {
+// Data por extenso no idioma do email (as datas das reservas são guardadas à meia-noite UTC)
+function formatDate(date, locale = 'pt') {
+  return new Date(date).toLocaleDateString(DATE_LOCALES[normalizeLocale(locale)], {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC'
   });
 }
 
+// Data e hora em Portugal (validade do link de pagamento)
+function formatDateTime(date, locale = 'pt') {
+  return new Date(date).toLocaleString(DATE_LOCALES[normalizeLocale(locale)], {
+    day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Lisbon'
+  }) + ` (${emailText(locale).portugalTime})`;
+}
+
 // Todos os avisos (novas reservas e contactos) e respostas dos hóspedes vão para este email
 const RESERVATIONS_EMAIL = process.env.NOTIFICATION_EMAIL || 'reservas@casadoferreirovn.pt';
-
-const CHECK_IN_TIME = 'a partir das 16:00';
-const CHECK_OUT_TIME = 'até às 11:00';
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -59,12 +65,18 @@ function splitSpecialRequests(specialRequests) {
   };
 }
 
-function stayRows(reservation) {
+function boxRow(label, value) {
+  return `<div class="box-row"><span class="box-label">${label}</span><span class="box-value">${value}</span></div>`;
+}
+
+function stayRows(reservation, locale = 'pt') {
+  const t = emailText(locale);
   const { arrivalTime } = splitSpecialRequests(reservation.specialRequests);
-  return `
-        <div class="box-row"><span class="box-label">Check-in</span><span class="box-value">${formatDate(reservation.checkIn)}, ${CHECK_IN_TIME}</span></div>
-        ${arrivalTime ? `<div class="box-row"><span class="box-label">Hora prevista de chegada</span><span class="box-value">${arrivalTime}</span></div>` : ''}
-        <div class="box-row"><span class="box-label">Check-out</span><span class="box-value">${formatDate(reservation.checkOut)}, ${CHECK_OUT_TIME}</span></div>`;
+  return [
+    boxRow(t.checkIn, `${formatDate(reservation.checkIn, locale)}, ${t.checkInTime}`),
+    arrivalTime ? boxRow(t.arrivalTime, arrivalTime) : '',
+    boxRow(t.checkOut, `${formatDate(reservation.checkOut, locale)}, ${t.checkOutTime}`),
+  ].filter(Boolean).join('\n        ');
 }
 
 // Nome e telefone do pedido (reservas antigas só têm os do hóspede)
@@ -77,13 +89,11 @@ function guestContact(reservation) {
 }
 
 // Hóspedes por idade; reservas antigas só têm o total
-function partyLabel(reservation) {
-  const groups = [
-    [reservation.adults, 'adulto', 'adultos'],
-    [reservation.teens, 'jovem (7–17)', 'jovens (7–17)'],
-    [reservation.children, 'criança (3–6)', 'crianças (3–6)'],
-    [reservation.infants, 'bebé (0–2)', 'bebés (0–2)'],
-  ].filter(([count]) => count > 0).map(([count, one, many]) => `${count} ${count === 1 ? one : many}`);
+function partyLabel(reservation, locale = 'pt') {
+  const { party } = emailText(locale);
+  const groups = ['adults', 'teens', 'children', 'infants']
+    .filter(key => reservation[key] > 0)
+    .map(key => `${reservation[key]} ${party[key][reservation[key] === 1 ? 0 : 1]}`);
   return groups.length ? groups.join(', ') : String(reservation.guests);
 }
 
@@ -92,33 +102,47 @@ function euros(value) {
 }
 
 // Detalhe do preço guardado na reserva (reservas antigas não o têm)
-function priceRows(reservation) {
+function priceRows(reservation, locale = 'pt') {
+  const t = emailText(locale);
   const quote = reservation.priceBreakdown;
   if (!quote) return '';
-  const row = (label, value) => `<div class="box-row"><span class="box-label">${label}</span><span class="box-value">${value}</span></div>`;
-  const rows = [row('Alojamento', euros(quote.accommodation))];
-  if (quote.guestAdjustment > 0) rows.push(row('Pessoas a mais', `+${euros(quote.guestAdjustment)}`));
-  if (quote.guestAdjustment < 0) rows.push(row('Desconto por pessoas a menos', `−${euros(quote.guestAdjustment)}`));
-  if (quote.crib > 0) rows.push(row('Berço', euros(quote.crib)));
+  const rows = [boxRow(t.accommodation, euros(quote.accommodation))];
+  if (quote.guestAdjustment > 0) rows.push(boxRow(t.extraGuests, `+${euros(quote.guestAdjustment)}`));
+  if (quote.guestAdjustment < 0) rows.push(boxRow(t.fewerGuests, `−${euros(quote.guestAdjustment)}`));
+  if (quote.crib > 0) rows.push(boxRow(t.cot, euros(quote.crib)));
   if (quote.promotion) {
-    rows.push(row(`Promoção «${escapeHtml(quote.promotion.name)}» (−${quote.promotion.discountPct}%)`, `−${euros(quote.promotion.discount)}`));
+    rows.push(boxRow(`${t.promotion} «${escapeHtml(quote.promotion.name)}» (−${quote.promotion.discountPct}%)`, `−${euros(quote.promotion.discount)}`));
   }
   return rows.join('\n        ');
 }
 
 // Nota destacada para o hóspede quando a reserva tem promoção
-function promotionNote(reservation) {
+function promotionNote(reservation, locale = 'pt') {
   const promotion = reservation.priceBreakdown?.promotion;
   if (!promotion) return '';
-  return `<p>🎉 <strong>Promoção «${escapeHtml(promotion.name)}»:</strong> ${promotion.discountPct}% de desconto em estadias de ${promotion.minNights} ou mais noites. Nesta reserva poupou ${euros(promotion.discount)}.</p>`;
+  return `<p>${emailText(locale).promotionNote(escapeHtml(promotion.name), promotion.discountPct, promotion.minNights, euros(promotion.discount))}</p>`;
 }
 
-const SCHEDULE_NOTE = `<p>Check-in ${CHECK_IN_TIME}, à hora que lhe for mais conveniente. Check-out ${CHECK_OUT_TIME}.</p>`;
+function scheduleNote(locale = 'pt') {
+  return `<p>${emailText(locale).schedule}</p>`;
+}
 
-function baseTemplate(content) {
+function reference(reservation) {
+  return reservation.id.slice(0, 8).toUpperCase();
+}
+
+function guestFooter(locale) {
+  return `
+    <div class="footer">
+      <p>Casa do Ferreiro · Venda Nova, Montalegre, Portugal</p>
+      <p>© ${new Date().getFullYear()} Casa do Ferreiro. ${emailText(locale).rights}</p>
+    </div>`;
+}
+
+function baseTemplate(content, locale = 'pt') {
   return `
   <!DOCTYPE html>
-  <html lang="pt">
+  <html lang="${normalizeLocale(locale)}">
   <head><meta charset="UTF-8"><style>
     body { font-family: Georgia, serif; background: #f5f0e8; margin: 0; padding: 0; }
     .wrap { max-width: 580px; margin: 40px auto; background: #fdfaf5; border: 1px solid #e8dcc8; }
@@ -141,124 +165,116 @@ function baseTemplate(content) {
 }
 
 async function sendReservationConfirmation(reservation) {
-  const { room } = reservation;
+  const locale = normalizeLocale(reservation.locale);
+  const t = emailText(locale);
   const guest = guestContact(reservation);
-  const nights = reservation.nights;
+  const ref = reference(reservation);
 
   const html = baseTemplate(`
     <div class="header">
       <h1>Casa do Ferreiro</h1>
-      <p>Pedido de Reserva Recebido</p>
+      <p>${t.requestTitle}</p>
     </div>
     <div class="body">
-      <p>Caro/a <strong>${escapeHtml(guest.name)}</strong>,</p>
-      <p>O seu pedido foi recebido e será analisado pelo proprietário. Se for aprovado, receberá um link para pagar e confirmar a reserva.</p>
+      <p>${t.dear(escapeHtml(guest.name))}</p>
+      <p>${t.requestIntro}</p>
       <div class="box">
-        <div class="box-row"><span class="box-label">Referência</span><span class="box-value">#${reservation.id.slice(0,8).toUpperCase()}</span></div>
-        <div class="box-row"><span class="box-label">Quarto</span><span class="box-value">${room.name}</span></div>
-        ${stayRows(reservation)}
-        <div class="box-row"><span class="box-label">Noites</span><span class="box-value">${nights}</span></div>
-        <div class="box-row"><span class="box-label">Hóspedes</span><span class="box-value">${partyLabel(reservation)}</span></div>
-        ${priceRows(reservation)}
-        <div class="box-row"><span class="box-label">Total</span><span class="box-value">€${reservation.totalPrice.toFixed(2)}</span></div>
+        ${boxRow(t.reference, `#${ref}`)}
+        ${boxRow(t.unit, escapeHtml(reservation.room.name))}
+        ${stayRows(reservation, locale)}
+        ${boxRow(t.nights, reservation.nights)}
+        ${boxRow(t.guests, partyLabel(reservation, locale))}
+        ${priceRows(reservation, locale)}
+        ${boxRow(t.total, euros(reservation.totalPrice))}
       </div>
-      ${promotionNote(reservation)}
-      ${SCHEDULE_NOTE}
-      <p>O envio deste pedido ainda não confirma a reserva.</p>
-      <p>Para qualquer dúvida, contacte-nos:</p>
+      ${promotionNote(reservation, locale)}
+      ${scheduleNote(locale)}
+      <p>${t.requestNotConfirmed}</p>
+      <p>${t.contactUs}</p>
       <p>📞 +351 938 750 239 &nbsp;|&nbsp; ✉ ${RESERVATIONS_EMAIL}</p>
     </div>
-    <div class="footer">
-      <p>Casa do Ferreiro · Venda Nova, Montalegre, Portugal</p>
-      <p>© ${new Date().getFullYear()} Casa do Ferreiro. Todos os direitos reservados.</p>
-    </div>
-  `);
+    ${guestFooter(locale)}
+  `, locale);
 
   await sendMail({
     from: process.env.EMAIL_FROM,
     to: guest.email,
     replyTo: RESERVATIONS_EMAIL,
-    subject: `Pedido de reserva recebido — Casa do Ferreiro #${reservation.id.slice(0,8).toUpperCase()}`,
+    subject: t.requestSubject(ref),
     html,
   });
 }
 
 async function sendReservationPaymentLink(reservation, checkoutUrl) {
-  const { room } = reservation;
+  const locale = normalizeLocale(reservation.locale);
+  const t = emailText(locale);
   const guest = guestContact(reservation);
+  const ref = reference(reservation);
   const html = baseTemplate(`
     <div class="header">
       <h1>Casa do Ferreiro</h1>
-      <p>Reserva aprovada</p>
+      <p>${t.approvedTitle}</p>
     </div>
     <div class="body">
-      <p>Caro/a <strong>${escapeHtml(guest.name)}</strong>,</p>
-      <p>O proprietário aprovou o seu pedido. Conclua o pagamento para confirmar definitivamente a reserva.</p>
+      <p>${t.dear(escapeHtml(guest.name))}</p>
+      <p>${t.approvedIntro}</p>
       <div class="box">
-        <div class="box-row"><span class="box-label">Referência</span><span class="box-value">#${reservation.id.slice(0,8).toUpperCase()}</span></div>
-        <div class="box-row"><span class="box-label">Unidade</span><span class="box-value">${room.name}</span></div>
-        ${stayRows(reservation)}
-        ${priceRows(reservation)}
-        <div class="box-row"><span class="box-label">Total</span><span class="box-value">€${reservation.totalPrice.toFixed(2)}</span></div>
+        ${boxRow(t.reference, `#${ref}`)}
+        ${boxRow(t.unit, escapeHtml(reservation.room.name))}
+        ${stayRows(reservation, locale)}
+        ${priceRows(reservation, locale)}
+        ${boxRow(t.total, euros(reservation.totalPrice))}
       </div>
-      <p><a href="${checkoutUrl}" class="btn">Pagar e confirmar reserva</a></p>
-      <p>Este link é válido durante 35 minutos.</p>
-      ${promotionNote(reservation)}
-      ${SCHEDULE_NOTE}
+      <p><a href="${checkoutUrl}" class="btn">${t.payButton}</a></p>
+      ${reservation.paymentExpiresAt ? `<p>${t.linkValidUntil(formatDateTime(reservation.paymentExpiresAt, locale))}</p>` : ''}
+      ${promotionNote(reservation, locale)}
+      ${scheduleNote(locale)}
     </div>
-    <div class="footer"><p>Casa do Ferreiro · Venda Nova, Montalegre, Portugal</p></div>
-  `);
+    ${guestFooter(locale)}
+  `, locale);
 
   await sendMail({
     from: process.env.EMAIL_FROM,
     to: guest.email,
     replyTo: RESERVATIONS_EMAIL,
-    subject: `Pedido aprovado: conclua o pagamento — Casa do Ferreiro #${reservation.id.slice(0,8).toUpperCase()}`,
+    subject: t.approvedSubject(ref),
     html,
   });
 }
 
 async function sendReservationStatusUpdate(reservation, newStatus) {
-  const { room } = reservation;
+  const locale = normalizeLocale(reservation.locale);
+  const t = emailText(locale);
   const guest = guestContact(reservation);
-  const cancellationMessage = reservation.stripeRefundId
-    ? 'A sua reserva foi cancelada e foi solicitado o reembolso integral do pagamento. O prazo para o valor ficar disponível depende do banco emissor.'
-    : 'A sua reserva foi cancelada. Lamentamos qualquer inconveniente.';
-  const statusMessages = {
-    CONFIRMED: { label: 'Confirmada ✓', msg: 'A sua reserva foi confirmada! Estamos ansiosos por recebê-lo/a.' },
-    DECLINED:  { label: 'Recusada',      msg: 'Lamentamos informar que não foi possível confirmar a sua reserva para as datas solicitadas.' },
-    CANCELLED: { label: 'Cancelada',     msg: cancellationMessage },
-    PAID:      { label: 'Paga ✓',        msg: 'O pagamento foi processado com sucesso. Tudo pronto!' },
-  };
-  const info = statusMessages[newStatus] || { label: newStatus, msg: '' };
+  const ref = reference(reservation);
+  const statusKey = newStatus === 'CANCELLED' && reservation.stripeRefundId ? 'CANCELLED_REFUND' : newStatus;
+  const [label, message] = t.status[statusKey] || [newStatus, ''];
 
   const html = baseTemplate(`
     <div class="header">
       <h1>Casa do Ferreiro</h1>
-      <p>Atualização de Reserva — ${info.label}</p>
+      <p>${t.updateTitle(label)}</p>
     </div>
     <div class="body">
-      <p>Caro/a <strong>${escapeHtml(guest.name)}</strong>,</p>
-      <p>${info.msg}</p>
+      <p>${t.dear(escapeHtml(guest.name))}</p>
+      <p>${message}</p>
       <div class="box">
-        <div class="box-row"><span class="box-label">Referência</span><span class="box-value">#${reservation.id.slice(0,8).toUpperCase()}</span></div>
-        <div class="box-row"><span class="box-label">Quarto</span><span class="box-value">${room.name}</span></div>
-        ${stayRows(reservation)}
-        ${priceRows(reservation)}
-        <div class="box-row"><span class="box-label">Total</span><span class="box-value">€${reservation.totalPrice.toFixed(2)}</span></div>
+        ${boxRow(t.reference, `#${ref}`)}
+        ${boxRow(t.unit, escapeHtml(reservation.room.name))}
+        ${stayRows(reservation, locale)}
+        ${priceRows(reservation, locale)}
+        ${boxRow(t.total, euros(reservation.totalPrice))}
       </div>
-      ${['CONFIRMED', 'PAID'].includes(newStatus) ? promotionNote(reservation) + SCHEDULE_NOTE : ''}
+      ${['CONFIRMED', 'PAID'].includes(newStatus) ? promotionNote(reservation, locale) + scheduleNote(locale) : ''}
     </div>
-    <div class="footer">
-      <p>Casa do Ferreiro · Venda Nova, Montalegre, Portugal</p>
-    </div>
-  `);
+    ${guestFooter(locale)}
+  `, locale);
 
   await sendMail({
     from: process.env.EMAIL_FROM,
     to: guest.email,
     replyTo: RESERVATIONS_EMAIL,
-    subject: `Reserva ${info.label} — Casa do Ferreiro`,
+    subject: t.updateSubject(label, ref),
     html,
   });
 }
@@ -286,6 +302,7 @@ async function sendAdminNotification(reservation) {
         <div class="box-row"><span class="box-label">Hóspede</span><span class="box-value">${escapeHtml(guest.name)}</span></div>
         <div class="box-row"><span class="box-label">Email</span><span class="box-value">${escapeHtml(guest.email)}</span></div>
         <div class="box-row"><span class="box-label">Telefone</span><span class="box-value">${escapeHtml(guest.phone || '—')}</span></div>
+        <div class="box-row"><span class="box-label">Idioma</span><span class="box-value">${LANGUAGE_NAMES[normalizeLocale(reservation.locale)]}</span></div>
         <div class="box-row"><span class="box-label">Quarto</span><span class="box-value">${room.name}</span></div>
         ${stayRows(reservation)}
         <div class="box-row"><span class="box-label">Hóspedes</span><span class="box-value">${partyLabel(reservation)}</span></div>

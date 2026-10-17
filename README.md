@@ -18,7 +18,7 @@ Site e sistema de reservas da Casa do Ferreiro: duas casas de férias (T2 e T3) 
 
 1. O hóspede escolhe as datas no calendário (só aparecem como livres as datas reserváveis) e envia o pedido com as idades das pessoas.
 2. O pedido fica **pendente** e o proprietário recebe um email.
-3. No painel, o proprietário **aceita** ou **recusa**. Ao aceitar, o hóspede recebe um link de pagamento Stripe (válido 35 minutos).
+3. No painel, o proprietário **aceita** ou **recusa**. Ao aceitar, o hóspede recebe um link de pagamento Stripe, válido 24 horas. Durante esse tempo as datas ficam reservadas para ele.
 4. Quando o Stripe confirma o pagamento, a reserva passa a **paga** e ambos recebem confirmação.
 
 Regras principais:
