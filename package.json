@@ -12,7 +12,8 @@
     "db:setup": "npm run db:check && npx prisma migrate deploy && node src/seed.js",
     "db:migrate": "npx prisma migrate deploy",
     "db:studio": "npx prisma studio",
-    "db:seed": "node src/seed.js"
+    "db:seed": "node src/seed.js",
+    "emails": "node scripts/preview-emails.js"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",

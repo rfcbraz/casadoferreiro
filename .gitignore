@@ -4,3 +4,4 @@
 
 # Dependências instaladas pelo npm (o Railway instala-as a partir do package-lock.json)
 node_modules/
+email-previews/
