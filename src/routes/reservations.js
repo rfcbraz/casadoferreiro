@@ -7,6 +7,9 @@ const { requireAuth } = require('../middleware/auth');
 const { normalizeParty, validateParty, countedGuests, calculateQuote } = require('../lib/pricing');
 const { loadPricing } = require('../lib/priceRules');
 const { blockedConflictWhere } = require('../lib/blockedDates');
+const { verifyTurnstile, TURNSTILE_ERROR } = require('../lib/turnstile');
+
+const MAX_PENDING_REQUESTS_PER_EMAIL = 3; // pedidos pendentes por email em 24 horas
 const { sendReservationConfirmation, sendReservationPaymentLink, sendReservationStatusUpdate, sendAdminNotification } = require('../services/email');
 const { getStripeClient, refundPaymentIntent } = require('../services/stripe');
 const router = express.Router();
@@ -14,7 +17,9 @@ const router = express.Router();
 // POST /api/reservations — criar reserva (público)
 router.post('/', async (req, res, next) => {
   try {
-    const { name, email, phone, roomId, checkIn, checkOut, guests, specialRequests } = req.body;
+    const { name, email, phone, roomId, checkIn, checkOut, guests, specialRequests, website, turnstileToken } = req.body;
+    // Campo escondido anti-robô: pessoas não o preenchem
+    if (website) return res.status(400).json({ error: 'Pedido inválido.' });
     // Idades: adultos (18+), 7–17, 3–6 e bebés (0–2). Pedidos antigos só com "guests" contam como adultos.
     const hasAgeGroups = ['adults', 'teens', 'children', 'infants'].some(key => req.body[key] !== undefined);
     const party = normalizeParty(hasAgeGroups ? req.body : { adults: guests });
@@ -41,6 +46,21 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'O telefone deve ter entre 7 e 15 algarismos.' });
     }
     const validEmail = emailResult.data;
+
+    const turnstile = await verifyTurnstile(turnstileToken, req.ip);
+    if (!turnstile.success) return res.status(403).json({ error: TURNSTILE_ERROR });
+
+    // Evita usar o formulário para enviar muitos emails ao mesmo endereço
+    const recentPending = await prisma.reservation.count({
+      where: {
+        guest: { email: validEmail },
+        status: 'PENDING',
+        createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      },
+    });
+    if (recentPending >= MAX_PENDING_REQUESTS_PER_EMAIL) {
+      return res.status(429).json({ error: 'Já existem vários pedidos pendentes para este email. Aguarde a resposta do proprietário.' });
+    }
 
     const ciDate = new Date(checkIn);
     const coDate = new Date(checkOut);

@@ -3,10 +3,11 @@ const express = require('express');
 const router = express.Router();
 const { validateEmail, normalizePhoneNumber } = require('../lib/contactValidation');
 const { sendContactMessage } = require('../services/email');
+const { verifyTurnstile, TURNSTILE_ERROR } = require('../lib/turnstile');
 
 // POST /api/contact — formulário de contacto do site
 router.post('/', async (req, res) => {
-  const { name, email, phone, message, website } = req.body || {};
+  const { name, email, phone, message, website, turnstileToken } = req.body || {};
 
   // Campo escondido anti-spam: pessoas não o preenchem, bots sim
   if (website) return res.json({ message: 'Mensagem enviada.' });
@@ -27,6 +28,9 @@ router.post('/', async (req, res) => {
   if (phone && !normalizedPhone) {
     return res.status(400).json({ error: 'Número de telefone inválido.' });
   }
+
+  const turnstile = await verifyTurnstile(turnstileToken, req.ip);
+  if (!turnstile.success) return res.status(403).json({ error: TURNSTILE_ERROR });
 
   try {
     await sendContactMessage({

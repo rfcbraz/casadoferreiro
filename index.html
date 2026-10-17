@@ -7,6 +7,7 @@
   document.documentElement.classList.add('intro-pending');
   window.introSafetyTimer = setTimeout(function () { document.documentElement.classList.remove('intro-pending'); }, 4000);
 </script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -251,6 +252,8 @@ html.intro-pending .hero h1,html.intro-pending .nav-logo{visibility:hidden}
 .btn-confirm:disabled{opacity:.6;cursor:wait}
 .contact-email-link{background:none;border:none;padding:0;font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer}
 .contact-email-link:hover{color:var(--dark)}
+.turnstile-box{display:flex;justify-content:center;margin:.75rem 0 0;min-height:0}
+.turnstile-box:empty{display:none}
 .contact-honeypot{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
 
 .admin-panel{display:none;position:fixed;inset:0;z-index:600;background:var(--cream)}
@@ -669,6 +672,7 @@ footer{background:var(--dark);padding:4rem 3rem 2rem}
       <div class="form-field full"><label for="c-phone">Telefone (opcional)</label><input type="tel" id="c-phone" autocomplete="tel" inputmode="tel" maxlength="20" placeholder="+351 912 345 678"></div>
       <div class="form-field full"><label for="c-message">Mensagem</label><textarea id="c-message" maxlength="5000" required placeholder="Escreva a sua mensagem..."></textarea></div>
       <input type="text" id="c-website" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="contact-honeypot">
+      <div class="form-field full turnstile-box" id="contact-turnstile"></div>
       <div class="form-field full"><button class="btn-confirm" type="submit" id="c-submit">Enviar mensagem</button></div>
     </form>
   </div>
@@ -735,6 +739,8 @@ footer{background:var(--dark);padding:4rem 3rem 2rem}
       <div class="summary-breakdown" id="s-breakdown"></div>
       <div class="summary-promo" id="s-promo-hint"></div>
     </div>
+    <input type="text" id="f-website" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="contact-honeypot">
+    <div class="turnstile-box" id="booking-turnstile"></div>
     <button class="btn-confirm" onclick="confirmBooking()">Enviar pedido de reserva</button>
   </div>
 </div>
@@ -1033,6 +1039,9 @@ const translations = {
     'Pessoas a mais': 'Extra guests',
     'Desconto por pessoas a menos': 'Fewer guests discount',
     'Berço': 'Cot',
+    'Aguarde a verificação de segurança e tente novamente.': 'Please wait for the security check and try again.',
+    'Não foi possível confirmar que não é um robô. Atualize a verificação e tente novamente.': 'We could not confirm you are not a robot. Please refresh the check and try again.',
+    'Já existem vários pedidos pendentes para este email. Aguarde a resposta do proprietário.': 'There are already several pending requests for this email. Please wait for the owner to reply.',
     'Valor para {{people}} pessoas. O total final depende do número e da idade dos hóspedes.': 'Price for {{people}} guests. The final total depends on the number and ages of guests.',
     'Escolha a data de entrada. Só aparecem disponíveis os dias em que é possível reservar.': 'Choose your check-in date. Only dates you can book are shown as available.',
     'Escolha a data de saída. Para mudar a entrada, clique novamente nela.': 'Choose your check-out date. To change check-in, click it again.',
@@ -1203,6 +1212,9 @@ const translations = {
     'Pessoas a mais': 'Personas adicionales',
     'Desconto por pessoas a menos': 'Descuento por menos personas',
     'Berço': 'Cuna',
+    'Aguarde a verificação de segurança e tente novamente.': 'Espere a la verificación de seguridad e inténtelo de nuevo.',
+    'Não foi possível confirmar que não é um robô. Atualize a verificação e tente novamente.': 'No pudimos confirmar que no es un robot. Actualice la verificación e inténtelo de nuevo.',
+    'Já existem vários pedidos pendentes para este email. Aguarde a resposta do proprietário.': 'Ya hay varias solicitudes pendientes para este correo. Espere la respuesta del propietario.',
     'Valor para {{people}} pessoas. O total final depende do número e da idade dos hóspedes.': 'Precio para {{people}} personas. El total final depende del número y la edad de los huéspedes.',
     'Escolha a data de entrada. Só aparecem disponíveis os dias em que é possível reservar.': 'Elija la fecha de entrada. Solo aparecen disponibles los días que se pueden reservar.',
     'Escolha a data de saída. Para mudar a entrada, clique novamente nela.': 'Elija la fecha de salida. Para cambiar la entrada, haga clic de nuevo en ella.',
@@ -2548,10 +2560,37 @@ function closePromoModal(goToAvailability = false) {
   startIntroAnimations();
 }
 
+// ── Verificação anti-robô (Cloudflare Turnstile) ─────────────
+const TURNSTILE_SITE_KEY = '0x4AAAAAAFZhMKlEQihoOY71';
+const turnstileWidgets = {};
+
+// Mostra a verificação no formulário (só pede interação quando o Cloudflare desconfia)
+function renderTurnstile(containerId) {
+  if (!window.turnstile) { setTimeout(() => renderTurnstile(containerId), 500); return; }
+  if (turnstileWidgets[containerId] !== undefined) return;
+  turnstileWidgets[containerId] = window.turnstile.render(`#${containerId}`, {
+    sitekey: TURNSTILE_SITE_KEY,
+    appearance: 'interaction-only',
+    language: currentLanguage === 'pt' ? 'pt-PT' : currentLanguage,
+  });
+}
+
+function getTurnstileToken(containerId) {
+  const widgetId = turnstileWidgets[containerId];
+  return widgetId !== undefined && window.turnstile ? window.turnstile.getResponse(widgetId) || '' : '';
+}
+
+// Cada código só serve uma vez: depois de enviar, pede um novo
+function resetTurnstile(containerId) {
+  const widgetId = turnstileWidgets[containerId];
+  if (widgetId !== undefined && window.turnstile) window.turnstile.reset(widgetId);
+}
+
 // Formulário de contacto (aberto a partir do email na janela "Contacto")
 function openContactForm() {
   document.getElementById('footer-info-modal').classList.remove('open');
   document.getElementById('contact-modal').classList.add('open');
+  renderTurnstile('contact-turnstile');
   document.getElementById('c-name').focus();
 }
 
@@ -2571,6 +2610,8 @@ async function submitContactForm(event) {
   if (!name || !email) { showToast(translateText('Por favor preencha nome e email.')); return; }
   if (!document.getElementById('c-email').checkValidity()) { showToast(translateText('Introduza um endereço de email válido.')); return; }
   if (message.length < 10) { showToast(translateText('A mensagem deve ter pelo menos 10 caracteres.')); return; }
+  const turnstileToken = getTurnstileToken('contact-turnstile');
+  if (!turnstileToken) { showToast(translateText('Aguarde a verificação de segurança e tente novamente.')); return; }
 
   const btn = document.getElementById('c-submit');
   btn.disabled = true;
@@ -2578,7 +2619,7 @@ async function submitContactForm(event) {
     const res = await fetch(`${API}/contact`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, phone, message, website }),
+      body: JSON.stringify({ name, email, phone, message, website, turnstileToken }),
       signal: AbortSignal.timeout(45000)
     });
     const data = await res.json().catch(() => ({}));
@@ -2594,6 +2635,7 @@ async function submitContactForm(event) {
     showToast(translateText('Não foi possível ligar ao servidor. Verifique a sua ligação.'));
   } finally {
     btn.disabled = false;
+    resetTurnstile('contact-turnstile');
   }
 }
 
@@ -2632,6 +2674,7 @@ function openBooking() {
   updateArrivalTimeOptions();
   updateMinimumCheckoutDate();
   document.getElementById('booking-modal').classList.add('open');
+  renderTurnstile('booking-turnstile');
   updateSummary();
   return true;
 }
@@ -2879,6 +2922,9 @@ async function confirmBooking() {
     return;
   }
   const reservationNotes = [`Hora prevista de chegada: ${arrivalTime}`, specialRequests].filter(Boolean).join('\n');
+  const turnstileToken = getTurnstileToken('booking-turnstile');
+  if (!turnstileToken) { showToast(translateText('Aguarde a verificação de segurança e tente novamente.')); return; }
+  const website = document.getElementById('f-website').value;
 
   const btn = document.querySelector('.btn-confirm');
   btn.disabled = true;
@@ -2888,7 +2934,7 @@ async function confirmBooking() {
     const res = await fetch(`${API}/reservations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, phone, roomId, checkIn, checkOut, ...party, specialRequests: reservationNotes })
+      body: JSON.stringify({ name, email, phone, roomId, checkIn, checkOut, ...party, specialRequests: reservationNotes, website, turnstileToken })
     });
 
     const data = await res.json();
@@ -2912,6 +2958,7 @@ async function confirmBooking() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Enviar pedido de reserva';
+    resetTurnstile('booking-turnstile');
   }
 }
 
