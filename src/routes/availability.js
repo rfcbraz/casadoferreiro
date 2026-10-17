@@ -2,9 +2,10 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const { requireAuth } = require('../middleware/auth');
-const { MINIMUM_STAY_NIGHTS, CHECK_IN_DATE_ERROR, isCheckInDateAllowed } = require('../lib/reservationRules');
+const { MINIMUM_STAY_NIGHTS, CHECK_IN_DATE_ERROR, getPortugalToday, isCheckInDateAllowed } = require('../lib/reservationRules');
 const { normalizeParty, calculateQuote } = require('../lib/pricing');
 const { loadPricing } = require('../lib/priceRules');
+const { blockedConflictWhere } = require('../lib/blockedDates');
 const router = express.Router();
 
 // GET /api/availability?checkIn=YYYY-MM-DD&checkOut=YYYY-MM-DD
@@ -53,9 +54,7 @@ router.get('/', async (req, res, next) => {
 
     // Quartos com datas bloqueadas no período
     const blockedRoomIds = await prisma.blockedDate.findMany({
-      where: {
-        date: { gte: ciDate, lt: coDate },
-      },
+      where: blockedConflictWhere(ciDate, coDate),
       select: { roomId: true },
     });
 
@@ -134,7 +133,7 @@ router.get('/room/:roomId', async (req, res, next) => {
 
     const blocked = await prisma.blockedDate.findMany({
       where: { roomId, date: { gte: startOfMonth, lte: endOfMonth } },
-      select: { date: true, reason: true },
+      select: { date: true, reason: true, source: true },
     });
 
     // Expandir reservas em noites individuais (dentro do período pedido)
@@ -155,6 +154,7 @@ router.get('/room/:roomId', async (req, res, next) => {
       blockedDates: blocked.map(b => ({
         date: b.date.toISOString().split('T')[0],
         reason: b.reason,
+        source: b.source, // MANUAL fecha o dia inteiro; BOOKING_COM/AIRBNB só a noite
       })),
     });
   } catch (err) { next(err); }
@@ -166,6 +166,14 @@ router.post('/block', requireAuth, async (req, res, next) => {
     const { roomId, dates, reason } = req.body;
     if (!roomId || !dates || !Array.isArray(dates) || dates.length === 0) {
       return res.status(400).json({ error: 'roomId e dates[] são obrigatórios.' });
+    }
+    if (dates.length > 731 || dates.some(d => !/^\d{4}-\d{2}-\d{2}$/.test(String(d)))) {
+      return res.status(400).json({ error: 'Datas inválidas.' });
+    }
+    // Só se bloqueiam datas de hoje em diante (hora de Portugal)
+    const today = getPortugalToday();
+    if (dates.some(d => d < today)) {
+      return res.status(400).json({ error: 'Não é possível bloquear datas passadas.' });
     }
 
     const created = await Promise.all(

@@ -149,13 +149,13 @@ h2 em{font-style:italic;color:var(--accent)}
 .cal-day:hover:not(.unavail):not(.empty){background:rgba(201,137,58,.2);border-color:var(--accent);color:#fff}
 .cal-day.today{border-color:var(--accent2);color:var(--accent2)}
 .cal-day.selected{background:var(--accent);color:#fff;border-color:var(--accent)}
-.cal-day.in-range{background:rgba(201,137,58,.15);color:#fff}
-.cal-day.unavail{background:rgba(255,255,255,.03);color:rgba(255,255,255,.2);cursor:not-allowed;text-decoration:line-through}
-.cal-day.in-range.unavail{background:rgba(201,137,58,.15);color:#fff;text-decoration:none}
+.cal-day.in-range{background:var(--accent);color:#fff;border-color:var(--accent)}
+.cal-day.unavail{background:#5a1d1d;color:rgba(255,255,255,.4);cursor:not-allowed;text-decoration:line-through}
+.cal-day.unavail.past{background:transparent;color:rgba(255,255,255,.2);opacity:.55}
+.cal-day.in-range.unavail{background:var(--accent);color:#fff;border-color:var(--accent);text-decoration:none}
 .cal-day.selected.unavail{background:var(--accent);color:#fff;border-color:var(--accent);text-decoration:none}
 .cal-day.empty{cursor:default}
-.cal-day.checkout-only{background:linear-gradient(135deg,transparent 50%,rgba(255,255,255,.08) 50%);color:rgba(255,255,255,.7)}
-.cal-legend{display:flex;gap:1.5rem;margin-top:1rem}
+.cal-legend{display:flex;flex-wrap:wrap;gap:.6rem 1.5rem;margin-top:1rem}
 .cal-hint{margin-top:.75rem;font-size:.75rem;color:rgba(255,255,255,.55);line-height:1.5}
 .legend-item{display:flex;align-items:center;gap:.5rem;font-size:.72rem;color:var(--stone)}
 .legend-dot{width:10px;height:10px;border-radius:2px}
@@ -239,6 +239,8 @@ html.intro-pending .hero h1,html.intro-pending .nav-logo{visibility:hidden}
 .summary-breakdown:empty{display:none}
 .summary-promo{grid-column:1/-1;font-size:.78rem;color:var(--earth);background:rgba(201,137,58,.1);border-left:3px solid var(--accent);padding:.5rem .75rem;line-height:1.5}
 .summary-promo:empty{display:none}
+.availability-promo{color:#4ade80;font-size:.82rem;margin:.5rem 0 0;font-weight:500}
+.availability-note{color:rgba(255,255,255,.5);font-size:.72rem;margin:.35rem 0 .75rem}
 .summary-promo.applied{color:#15803d;background:rgba(21,128,61,.08);border-left-color:#15803d;font-weight:500}
 .age-groups{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem}
 .age-group{display:flex;flex-direction:column;gap:.35rem;font-size:.8rem;color:var(--dark);text-transform:none;letter-spacing:0;font-weight:500}
@@ -290,6 +292,20 @@ html.intro-pending .hero h1,html.intro-pending .nav-logo{visibility:hidden}
 .admin-tabs{display:flex;gap:0;margin-bottom:1.5rem;border:1px solid var(--warm);border-radius:var(--radius);overflow:hidden;width:fit-content}
 .admin-tab{padding:.6rem 1.5rem;font-size:.78rem;font-weight:500;cursor:pointer;border:none;background:var(--white);color:var(--muted);transition:all .2s}
 .admin-tab.active{background:var(--dark);color:#fff}
+#admin-cal-grid{user-select:none}
+.admin-cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:.8rem;cursor:pointer;border-radius:2px;border:1px solid transparent;transition:background .15s;font-family:Jost,sans-serif}
+.admin-cal-day.free{background:#dcfce7;color:#166534}
+.admin-cal-day.blocked{background:#fef9c3;color:#854d0e}
+.admin-cal-day.reserved{background:#fee2e2;color:#991b1b}
+.admin-cal-day.past{background:transparent;color:#c9c2b8;cursor:not-allowed;text-decoration:line-through}
+.admin-cal-day.selected{background:var(--accent);color:#fff}
+.admin-cal-day.selected.reserved{background:repeating-linear-gradient(45deg,#fee2e2 0 4px,#f6c9a0 4px 8px);color:#991b1b}
+.admin-cal-day.range-start{box-shadow:0 0 0 2px var(--dark) inset}
+.admin-range-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.4rem 0;border-bottom:1px solid var(--warm);font-size:.8rem;color:var(--earth)}
+.admin-range-row:last-child{border-bottom:none}
+.admin-range-row.pending{color:var(--accent)}
+.admin-range-remove{background:none;border:1px solid var(--warm);border-radius:2px;width:24px;height:24px;cursor:pointer;color:var(--muted);line-height:1}
+.admin-range-remove:hover{color:var(--dark);border-color:var(--dark)}
 .price-admin-intro{color:var(--muted);font-size:.85rem;line-height:1.6;max-width:760px;margin-bottom:1.5rem}
 .price-admin-room{max-width:320px;margin-bottom:1.5rem}
 .price-admin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5rem;margin-bottom:1.5rem}
@@ -567,7 +583,7 @@ footer{background:var(--dark);padding:4rem 3rem 2rem}
           <div class="cal-grid" id="cal-grid"></div>
           <div class="cal-legend">
             <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Selecionado</div>
-            <div class="legend-item"><div class="legend-dot" style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.15)"></div>Indisponível</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#5a1d1d"></div>Indisponível</div>
             <div class="legend-item"><div class="legend-dot" style="background:rgba(255,255,255,.1)"></div>Disponível</div>
           </div>
           <p class="cal-hint" id="cal-hint" aria-live="polite"></p>
@@ -798,7 +814,7 @@ footer{background:var(--dark);padding:4rem 3rem 2rem}
     <!-- TAB DISPONIBILIDADE -->
     <div id="admin-tab-availability" style="display:none">
       <div class="admin-header"><div class="admin-title">Disponibilidade</div></div>
-      <p style="color:var(--muted);font-size:.85rem;margin-bottom:2rem">Seleciona um quarto e bloqueia ou desbloqueia datas manualmente.</p>
+      <p style="color:var(--muted);font-size:.85rem;margin-bottom:2rem">Seleciona um quarto, escolhe um ou mais intervalos (clica na primeira e na última data, ou arrasta) e bloqueia ou desbloqueia. Só é possível alterar datas de hoje em diante. Um dia bloqueado fica fechado o dia inteiro: não há entradas nem saídas nesse dia.</p>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;align-items:start">
         <!-- Seletor de quarto -->
@@ -831,6 +847,7 @@ footer{background:var(--dark);padding:4rem 3rem 2rem}
               <div style="display:flex;align-items:center;gap:.5rem;font-size:.72rem;color:var(--muted)"><div style="width:10px;height:10px;border-radius:2px;background:#dcfce7;border:1px solid #86efac"></div>Disponível</div>
               <div style="display:flex;align-items:center;gap:.5rem;font-size:.72rem;color:var(--muted)"><div style="width:10px;height:10px;border-radius:2px;background:#fee2e2;border:1px solid #fca5a5"></div>Reservado</div>
               <div style="display:flex;align-items:center;gap:.5rem;font-size:.72rem;color:var(--muted)"><div style="width:10px;height:10px;border-radius:2px;background:#fef9c3;border:1px solid #fde047"></div>Bloqueado</div>
+              <div style="display:flex;align-items:center;gap:.5rem;font-size:.72rem;color:var(--muted)"><div style="width:10px;height:10px;border-radius:2px;background:var(--accent)"></div>Selecionado</div>
             </div>
           </div>
 
@@ -1016,10 +1033,10 @@ const translations = {
     'Pessoas a mais': 'Extra guests',
     'Desconto por pessoas a menos': 'Fewer guests discount',
     'Berço': 'Cot',
+    'Valor para {{people}} pessoas. O total final depende do número e da idade dos hóspedes.': 'Price for {{people}} guests. The final total depends on the number and ages of guests.',
     'Escolha a data de entrada. Só aparecem disponíveis os dias em que é possível reservar.': 'Choose your check-in date. Only dates you can book are shown as available.',
     'Escolha a data de saída. Para mudar a entrada, clique novamente nela.': 'Choose your check-out date. To change check-in, click it again.',
     'Para escolher outras datas, clique numa nova data de entrada.': 'To choose other dates, click a new check-in date.',
-    'Disponível apenas como dia de saída': 'Available as check-out day only',
     'Há noites ocupadas nesse período. Escolha outras datas.': 'Some nights in that period are booked. Please choose other dates.',
     'adulto': 'adult',
     'adultos': 'adults',
@@ -1186,10 +1203,10 @@ const translations = {
     'Pessoas a mais': 'Personas adicionales',
     'Desconto por pessoas a menos': 'Descuento por menos personas',
     'Berço': 'Cuna',
+    'Valor para {{people}} pessoas. O total final depende do número e da idade dos hóspedes.': 'Precio para {{people}} personas. El total final depende del número y la edad de los huéspedes.',
     'Escolha a data de entrada. Só aparecem disponíveis os dias em que é possível reservar.': 'Elija la fecha de entrada. Solo aparecen disponibles los días que se pueden reservar.',
     'Escolha a data de saída. Para mudar a entrada, clique novamente nela.': 'Elija la fecha de salida. Para cambiar la entrada, haga clic de nuevo en ella.',
     'Para escolher outras datas, clique numa nova data de entrada.': 'Para elegir otras fechas, haga clic en una nueva fecha de entrada.',
-    'Disponível apenas como dia de saída': 'Disponible solo como día de salida',
     'Há noites ocupadas nesse período. Escolha outras datas.': 'Hay noches ocupadas en ese periodo. Elija otras fechas.',
     'adulto': 'adulto',
     'adultos': 'adultos',
@@ -1672,6 +1689,7 @@ let calendarRoomId = null; // casa mostrada no calendário; null = todas as casa
 let selectedAvailabilityRoomId = null;
 let availableRoomIds = null;
 let availabilityRequestId = 0;
+let availabilityQuotes = new Map(); // roomId → orçamento das datas escolhidas (ocupação base)
 
 function renderCal(){
   const monthName = new Intl.DateTimeFormat(currentLanguage, { month: 'long' }).format(new Date(calYear, calMonth, 1));
@@ -1695,10 +1713,14 @@ function renderCal(){
     if (dateStr === selStart) isSelectable = true;
     else if (choosingCheckout && dateStr > selStart) isSelectable = isValidCheckOut(selStart, dateStr);
     else isSelectable = dateStr >= minimumCheckInDate && isValidCheckIn(dateStr);
-    const isCheckoutOnly = isSelectable && choosingCheckout && dateStr > selStart && isNightOccupied(dateStr);
+    // Saída e entrada no mesmo dia são permitidas: um dia em que começa outra reserva continua
+    // disponível como dia de saída (só as noites contam como ocupadas)
     const isUnavail = !isSelectable;
     if(isUnavail) el.classList.add('unavail');
-    if(isCheckoutOnly){el.classList.add('checkout-only');el.title=translateText('Disponível apenas como dia de saída');}
+    // Esbatidos (não a vermelho): dias passados e saídas que não cumprem a estadia mínima
+    const isTooShort = choosingCheckout && dateStr > selStart && nightsBetween(selStart, dateStr) < MINIMUM_STAY_NIGHTS
+      && isRangeFree(selStart, dateStr);
+    if(isUnavail && (dateStr < minimumCheckInDate || isTooShort)) el.classList.add('past');
     if(dateStr===getPortugalDateString())el.classList.add('today');
     el.dataset.dragDate=dateStr;
     if(!isUnavail){el.dataset.date=dateStr;el.onclick=()=>selectDay(dateStr);}
@@ -1712,7 +1734,7 @@ function isValidCheckIn(date) {
   return isRangeFree(date, shiftDateString(date, MINIMUM_STAY_NIGHTS));
 }
 function isValidCheckOut(start, end) {
-  return nightsBetween(start, end) >= MINIMUM_STAY_NIGHTS && isRangeFree(start, end);
+  return nightsBetween(start, end) >= MINIMUM_STAY_NIGHTS && isRangeFree(start, end, true);
 }
 function updateCalendarHint() {
   const hint = document.getElementById('cal-hint');
@@ -1739,16 +1761,18 @@ function calendarRoomIds() {
 // Uma noite está indisponível se todas as casas consideradas estiverem ocupadas
 function isNightOccupied(date) {
   const ids = calendarRoomIds().filter(id => roomOccupancy.has(id));
-  return ids.length > 0 && ids.every(id => roomOccupancy.get(id).has(date));
+  return ids.length > 0 && ids.every(id => roomOccupancy.get(id).nights.has(date));
 }
-// Há pelo menos uma casa livre em todas as noites, da entrada (inclusive) à saída (exclusive)
-function isRangeFree(start, end) {
+// Há pelo menos uma casa livre em todas as noites, da entrada (inclusive) à saída (exclusive).
+// Com isCheckOut, o dia de saída também não pode estar fechado no painel (bloqueio manual = dia inteiro).
+function isRangeFree(start, end, isCheckOut = false) {
   const ids = calendarRoomIds().filter(id => roomOccupancy.has(id));
   if (!ids.length) return true;
   return ids.some(id => {
-    const occupied = roomOccupancy.get(id);
+    const { nights, closedDays } = roomOccupancy.get(id);
+    if (isCheckOut && closedDays.has(end)) return false;
     for (let date = start; date < end; date = shiftDateString(date, 1)) {
-      if (occupied.has(date)) return false;
+      if (nights.has(date)) return false;
     }
     return true;
   });
@@ -1799,10 +1823,12 @@ async function fetchRoomOccupancy(roomId) {
   const res = await fetch(`${API}/availability/room/${roomId}?from=${from}&to=${to}`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error);
-  roomOccupancy.set(roomId, new Set([
-    ...(data.occupiedDates || []),
-    ...(data.blockedDates || []).map(b => b.date)
-  ]));
+  // nights: noites ocupadas ou bloqueadas; closedDays: dias fechados no painel (nem entrada nem saída)
+  const blocked = data.blockedDates || [];
+  roomOccupancy.set(roomId, {
+    nights: new Set([...(data.occupiedDates || []), ...blocked.map(b => b.date)]),
+    closedDays: new Set(blocked.filter(b => !b.source || b.source === 'MANUAL').map(b => b.date)),
+  });
 }
 
 // Mostra no calendário a casa indicada (ou todas, com null). refresh=false reutiliza o que já foi carregado.
@@ -1823,7 +1849,7 @@ function clearCalendarSelection() {
   selStart = null; selEnd = null;
   ['bar-checkin', 'bar-checkout', 'f-checkin', 'f-checkout'].forEach(id => { document.getElementById(id).value = ''; });
   availabilityRequestId++;
-  availableRoomIds = null;
+  availableRoomIds = null; availabilityQuotes = new Map();
   renderCal();
   updateSummary();
   renderAvailRooms(allRooms);
@@ -1839,7 +1865,7 @@ function selectDay(dateStr){
     showToast(`A estadia mínima é de ${MINIMUM_STAY_NIGHTS} noites consecutivas.`);
     return;
   }
-  if(selStart && !selEnd && dateStr > selStart && !isRangeFree(selStart, dateStr)){
+  if(selStart && !selEnd && dateStr > selStart && !isRangeFree(selStart, dateStr, true)){
     showToast('Há noites ocupadas nesse período. Escolha outras datas.');
     return;
   }
@@ -1861,7 +1887,7 @@ function selectDay(dateStr){
     updateMinimumCheckoutDate();
     if (!selEnd) {
       availabilityRequestId++;
-      availableRoomIds = null;
+      availableRoomIds = null; availabilityQuotes = new Map();
       updateSummary();
       renderAvailRooms(allRooms);
       updateAvailabilitySummary();
@@ -1873,7 +1899,7 @@ function selectDay(dateStr){
     document.getElementById('bar-checkout').value = coStr;
     document.getElementById('f-checkout').value = coStr;
     updateSummary();
-    availableRoomIds = null;
+    availableRoomIds = null; availabilityQuotes = new Map();
     const requestId = ++availabilityRequestId;
     updateAvailabilitySummary();
 
@@ -1890,6 +1916,7 @@ function selectDay(dateStr){
       .then(data => {
         if (requestId !== availabilityRequestId) return;
         availableRoomIds = new Set((data.availableRooms || []).map(room => room.id));
+        availabilityQuotes = new Map((data.availableRooms || []).map(room => [room.id, room.quote]));
         if (selectedAvailabilityRoomId && !availableRoomIds.has(selectedAvailabilityRoomId)) {
           selectedAvailabilityRoomId = null;
         }
@@ -2204,9 +2231,14 @@ function updateAvailabilitySummary() {
     nextStep = translateText('Escolha uma unidade disponível para ver o resumo.');
   }
 
+  // Mesmo total da lista (calculado pelo servidor com épocas, fins de semana, feriados e promoções)
+  const quote = room ? availabilityQuotes.get(room.id) : null;
+  const money = value => `€${new Intl.NumberFormat(currentLanguage, { maximumFractionDigits: 2 }).format(value)}`;
   const roomDetails = room ? `
-    <div class="availability-summary-item">${translateText('Alojamento')}<strong>${translateText(room.name)} · €${new Intl.NumberFormat(currentLanguage).format(room.pricePerNight)} ${translateText('/ noite')}</strong></div>
-    ${nights > 0 ? `<div class="availability-summary-total"><span>${translateText('Total estimado')}</span><strong>€${new Intl.NumberFormat(currentLanguage).format(room.pricePerNight * nights)}</strong></div>` : ''}` : '';
+    <div class="availability-summary-item">${translateText('Alojamento')}<strong>${translateText(room.name)}</strong></div>
+    ${nights > 0 && quote ? `<div class="availability-summary-total"><span>${translateText('Total estimado')}</span><strong>${money(quote.total)}</strong></div>
+    ${quote.promotion ? `<p class="availability-promo">${translateTemplate('✓ Desconto de {{pct}}% aplicado (promoção «{{name}}»).', { pct: quote.promotion.discountPct, name: quote.promotion.name })}</p>` : ''}
+    <p class="availability-note">${translateTemplate('Valor para {{people}} pessoas. O total final depende do número e da idade dos hóspedes.', { people: quote.baseOccupancy })}</p>` : ''}` : '';
   const canContinue = Boolean(room && checkIn && checkOut && nights >= MINIMUM_STAY_NIGHTS && availableRoomIds?.has(room.id));
 
   panel.innerHTML = `
@@ -2954,11 +2986,11 @@ function adminTab(tab, el) {
   if (tab === 'rooms') loadAdminRooms();
   if (tab === 'prices') loadPriceAdminRooms();
   if (tab === 'availability') {
-    adminSelectedDates.clear();
+    resetAdminSelection();
     adminOccupiedDates = new Set();
     adminBlockedDates = new Set();
     renderAdminCal();
-    loadAdminRooms();
+    loadAdminRooms().then(() => { if (document.getElementById('avail-room-select')?.value) loadRoomAvailability(); });
   }
 }
 
@@ -3517,43 +3549,97 @@ async function toggleRoomActive(id, currentActive) {
 }
 
 // ── Disponibilidade Admin ─────────────────────────────────
-let adminCalYear = new Date().getFullYear();
-let adminCalMonth = new Date().getMonth();
-let adminSelectedDates = new Set();
+// ── Disponibilidade (painel) ─────────────────────────────
+// Seleção por intervalos: clicar na primeira e na última data, ou arrastar. Podem juntar-se vários
+// intervalos (ex.: 15–19 e 26–30), também em meses diferentes. Só datas de hoje em diante.
+const ADMIN_CAL_RANGE_DAYS = 730;
+let adminCalYear = Number(getPortugalDateString().slice(0, 4));
+let adminCalMonth = Number(getPortugalDateString().slice(5, 7)) - 1;
+let adminRanges = [];          // [{ start, end }] inclusive
+let adminRangeStart = null;    // primeira data de um intervalo ainda por fechar
+let adminDrag = null;
 let adminOccupiedDates = new Set();
 let adminBlockedDates = new Set();
+
+function adminRangeDates(range) {
+  const dates = [];
+  for (let date = range.start; date <= range.end; date = shiftDateString(date, 1)) dates.push(date);
+  return dates;
+}
+
+// Datas selecionadas que podem mudar de estado (sem dias passados nem dias reservados)
+function adminSelectedDates() {
+  const dates = new Set();
+  adminRanges.forEach(range => adminRangeDates(range).forEach(date => {
+    if (!adminOccupiedDates.has(date)) dates.add(date);
+  }));
+  return [...dates].sort();
+}
+
+function resetAdminSelection() {
+  adminRanges = [];
+  adminRangeStart = null;
+  adminDrag = null;
+}
 
 function changeAdminMonth(dir) {
   adminCalMonth += dir;
   if (adminCalMonth > 11) { adminCalMonth = 0; adminCalYear++; }
   if (adminCalMonth < 0) { adminCalMonth = 11; adminCalYear--; }
-  adminSelectedDates.clear();
-  updateSelectedDatesPanel();
-  const roomId = document.getElementById('avail-room-select')?.value;
-  if (roomId) {
-    loadRoomAvailability();
-  } else {
-    renderAdminCal();
-  }
+  renderAdminCal();
 }
 
 async function loadRoomAvailability() {
   const roomId = document.getElementById('avail-room-select')?.value;
+  resetAdminSelection();
+  adminOccupiedDates = new Set();
+  adminBlockedDates = new Set();
   if (!roomId) { renderAdminCal(); return; }
 
   try {
-    const res = await fetch(
-      `${API}/availability/room/${roomId}?year=${adminCalYear}&month=${adminCalMonth + 1}`,
-      { headers: { Authorization: `Bearer ${adminToken}` } }
-    );
+    const from = getPortugalDateString();
+    const to = shiftDateString(from, ADMIN_CAL_RANGE_DAYS);
+    const res = await fetch(`${API}/availability/room/${roomId}?from=${from}&to=${to}`, {
+      headers: { Authorization: `Bearer ${adminToken}` }
+    });
     const data = await res.json();
-
+    if (!res.ok) throw new Error(data.error);
     adminOccupiedDates = new Set(data.occupiedDates || []);
     adminBlockedDates = new Set((data.blockedDates || []).map(b => b.date));
+  } catch(err) {
+    console.error('Erro disponibilidade admin:', err);
+    showToast('Não foi possível carregar a disponibilidade.');
+  }
+  renderAdminCal();
+}
 
-    renderAdminCal();
-    renderMonthReservations(data);
-  } catch(err) { console.error('Erro disponibilidade admin:', err); }
+function adminDayFromEvent(e) {
+  return e.target.closest?.('#admin-cal-grid [data-date]')?.dataset.date || null;
+}
+
+function addAdminRange(a, b) {
+  const [start, end] = [a, b].sort();
+  // Um novo intervalo substitui os que se sobrepõem a ele
+  adminRanges = adminRanges.filter(range => range.end < start || range.start > end);
+  adminRanges.push({ start, end });
+  adminRanges.sort((x, y) => (x.start < y.start ? -1 : 1));
+}
+
+function clickAdminDate(date) {
+  if (adminRangeStart) {
+    addAdminRange(adminRangeStart, date);
+    adminRangeStart = null;
+  } else {
+    const existing = adminRanges.findIndex(range => range.start <= date && date <= range.end);
+    if (existing !== -1) adminRanges.splice(existing, 1); // clicar num intervalo já escolhido remove-o
+    else adminRangeStart = date;
+  }
+  renderAdminCal();
+}
+
+function removeAdminRange(index) {
+  adminRanges.splice(index, 1);
+  renderAdminCal();
 }
 
 function renderAdminCal() {
@@ -3564,10 +3650,11 @@ function renderAdminCal() {
 
   titleEl.textContent = `${months[adminCalMonth]} ${adminCalYear}`;
   grid.innerHTML = '';
+  const today = getPortugalDateString();
+  const preview = adminDrag ? [adminDrag.start, adminDrag.end].sort() : null;
 
   const first = new Date(adminCalYear, adminCalMonth, 1).getDay();
   const days = new Date(adminCalYear, adminCalMonth + 1, 0).getDate();
-
   for (let i = 0; i < first; i++) {
     const el = document.createElement('div');
     el.style.cssText = 'aspect-ratio:1';
@@ -3578,64 +3665,105 @@ function renderAdminCal() {
     const dateStr = `${adminCalYear}-${String(adminCalMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const el = document.createElement('div');
     el.textContent = d;
-    el.style.cssText = 'aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:.8rem;cursor:pointer;border-radius:2px;border:1px solid transparent;transition:all .15s;font-family:Jost,sans-serif';
+    el.className = 'admin-cal-day';
+    const isPast = dateStr < today;
+    const isSelected = adminRanges.some(range => range.start <= dateStr && dateStr <= range.end)
+      || dateStr === adminRangeStart
+      || (preview && preview[0] <= dateStr && dateStr <= preview[1]);
 
-    if (adminOccupiedDates.has(dateStr)) {
-      el.style.background = '#fee2e2';
-      el.style.color = '#991b1b';
-      el.style.cursor = 'not-allowed';
-      el.title = 'Reservado';
+    if (isPast) {
+      el.classList.add('past');
+      el.title = 'Data passada';
+    } else if (adminOccupiedDates.has(dateStr)) {
+      el.classList.add('reserved');
+      el.title = 'Reservado (não pode ser bloqueado)';
     } else if (adminBlockedDates.has(dateStr)) {
-      el.style.background = '#fef9c3';
-      el.style.color = '#854d0e';
+      el.classList.add('blocked');
       el.title = 'Bloqueado';
     } else {
-      el.style.background = '#dcfce7';
-      el.style.color = '#166534';
+      el.classList.add('free');
       el.title = 'Disponível';
     }
-
-    if (adminSelectedDates.has(dateStr)) {
-      el.style.outline = '2px solid var(--accent)';
-      el.style.outlineOffset = '1px';
+    if (isSelected && !isPast) el.classList.add('selected');
+    if (dateStr === adminRangeStart) el.classList.add('range-start');
+    if (!isPast) {
+      el.dataset.date = dateStr;
+      el.addEventListener('click', () => {
+        if (adminSuppressClick) return;
+        clickAdminDate(dateStr);
+      });
     }
-
-    if (!adminOccupiedDates.has(dateStr)) {
-      el.addEventListener('click', () => toggleAdminDate(dateStr, el));
-    }
-
     grid.appendChild(el);
   }
+  updateSelectedDatesPanel();
+  renderMonthReservations();
 }
 
-function toggleAdminDate(dateStr, el) {
-  if (adminSelectedDates.has(dateStr)) {
-    adminSelectedDates.delete(dateStr);
-    el.style.outline = 'none';
-  } else {
-    adminSelectedDates.add(dateStr);
-    el.style.outline = '2px solid var(--accent)';
-    el.style.outlineOffset = '1px';
-  }
-  updateSelectedDatesPanel();
+// Arrastar entre datas cria um intervalo
+let adminSuppressClick = false;
+document.getElementById('admin-cal-grid')?.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'touch' || e.button !== 0) return;
+  const date = adminDayFromEvent(e);
+  if (!date) return;
+  adminDrag = { start: date, end: date, moved: false };
+});
+document.getElementById('admin-cal-grid')?.addEventListener('pointerover', e => {
+  if (!adminDrag) return;
+  const date = adminDayFromEvent(e);
+  if (!date || date === adminDrag.end) return;
+  adminDrag.end = date;
+  adminDrag.moved = true;
+  renderAdminCal();
+});
+document.addEventListener('pointerup', () => {
+  if (!adminDrag) return;
+  const { start, end, moved } = adminDrag;
+  adminDrag = null;
+  if (start === end) { if (moved) renderAdminCal(); return; } // clique simples: tratado pelo click
+  adminRangeStart = null;
+  addAdminRange(start, end);
+  adminSuppressClick = true;
+  setTimeout(() => { adminSuppressClick = false; }, 0);
+  renderAdminCal();
+});
+
+function formatAdminShortDate(date) {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 }
 
 function updateSelectedDatesPanel() {
   const el = document.getElementById('admin-selected-dates');
   if (!el) return;
-  if (adminSelectedDates.size === 0) {
-    el.textContent = 'Nenhuma data selecionada. Clica no calendário para selecionar.';
-  } else {
-    const sorted = [...adminSelectedDates].sort();
-    el.innerHTML = sorted.map(d => `<span style="display:inline-block;background:var(--warm);color:var(--earth);font-size:.75rem;padding:.2rem .6rem;border-radius:2px;margin:.2rem">${d}</span>`).join('');
+  if (!adminRanges.length && !adminRangeStart) {
+    el.textContent = 'Nenhuma data selecionada. Clica na primeira e na última data (ou arrasta). Podes juntar vários intervalos.';
+    return;
   }
+  const rows = adminRanges.map((range, index) => {
+    const dates = adminRangeDates(range);
+    const reserved = dates.filter(date => adminOccupiedDates.has(date)).length;
+    return `<div class="admin-range-row">
+      <span><strong>${formatAdminShortDate(range.start)}</strong> → <strong>${formatAdminShortDate(range.end)}</strong>
+      · ${dates.length} dia(s)${reserved ? ` <em>(${reserved} reservado(s), ignorado(s))</em>` : ''}</span>
+      <button type="button" class="admin-range-remove" aria-label="Remover intervalo" onclick="removeAdminRange(${index})">×</button>
+    </div>`;
+  });
+  if (adminRangeStart) {
+    rows.push(`<div class="admin-range-row pending">Início em <strong>${formatAdminShortDate(adminRangeStart)}</strong> — clica na última data do intervalo.</div>`);
+  }
+  el.innerHTML = rows.join('');
 }
 
-function renderMonthReservations(data) {
+// Reservas e bloqueios do mês que está no calendário
+function renderMonthReservations() {
   const el = document.getElementById('admin-month-reservations');
   if (!el) return;
-  const occupied = data.occupiedDates || [];
-  const blocked = data.blockedDates || [];
+  const prefix = `${adminCalYear}-${String(adminCalMonth + 1).padStart(2, '0')}-`;
+  const occupied = [...adminOccupiedDates].filter(date => date.startsWith(prefix));
+  const blocked = [...adminBlockedDates].filter(date => date.startsWith(prefix)).sort();
+  if (!document.getElementById('avail-room-select')?.value) {
+    el.textContent = 'Seleciona um quarto para ver as reservas.';
+    return;
+  }
   if (occupied.length === 0 && blocked.length === 0) {
     el.textContent = 'Sem reservas ou bloqueios neste mês.';
     return;
@@ -3645,52 +3773,39 @@ function renderMonthReservations(data) {
     html += `<div style="margin-bottom:.75rem"><strong style="font-size:.78rem;color:var(--dark)">${occupied.length} dia(s) reservado(s)</strong></div>`;
   }
   if (blocked.length > 0) {
-    html += `<div><strong style="font-size:.78rem;color:var(--dark)">${blocked.length} dia(s) bloqueado(s):</strong><div style="margin-top:.4rem">${blocked.map(b => `<span style="display:inline-block;background:#fef9c3;color:#854d0e;font-size:.75rem;padding:.2rem .6rem;border-radius:2px;margin:.2rem">${b.date}</span>`).join('')}</div></div>`;
+    html += `<div><strong style="font-size:.78rem;color:var(--dark)">${blocked.length} dia(s) bloqueado(s):</strong><div style="margin-top:.4rem">${blocked.map(date => `<span style="display:inline-block;background:#fef9c3;color:#854d0e;font-size:.75rem;padding:.2rem .6rem;border-radius:2px;margin:.2rem">${formatAdminShortDate(date)}</span>`).join('')}</div></div>`;
   }
   el.innerHTML = html;
 }
 
-async function blockSelectedDates() {
+async function changeSelectedDates(method) {
   const roomId = document.getElementById('avail-room-select')?.value;
   if (!roomId) { showToast('Seleciona um quarto primeiro.'); return; }
-  if (adminSelectedDates.size === 0) { showToast('Seleciona pelo menos uma data.'); return; }
-
+  if (adminRangeStart) { showToast('Falta escolher a última data do intervalo.'); return; }
+  const selected = adminSelectedDates();
+  // Bloquear: só os dias ainda livres; desbloquear: só os que estão bloqueados
+  const dates = method === 'POST'
+    ? selected.filter(date => !adminBlockedDates.has(date))
+    : selected.filter(date => adminBlockedDates.has(date));
+  if (!dates.length) {
+    showToast(method === 'POST' ? 'Não há dias livres para bloquear na seleção.' : 'Não há dias bloqueados na seleção.');
+    return;
+  }
   try {
     const res = await fetch(`${API}/availability/block`, {
-      method: 'POST',
+      method,
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
-      body: JSON.stringify({ roomId, dates: [...adminSelectedDates], reason: 'Bloqueado pelo admin' })
+      body: JSON.stringify(method === 'POST' ? { roomId, dates, reason: 'Bloqueado pelo admin' } : { roomId, dates })
     });
-    if (res.ok) {
-      showToast(`✓ ${adminSelectedDates.size} data(s) bloqueada(s).`);
-      adminSelectedDates.clear();
-      loadRoomAvailability();
-    } else {
-      showToast('Erro ao bloquear datas.');
-    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { showToast(data.error || 'Erro ao guardar.'); return; }
+    showToast(`✓ ${dates.length} dia(s) ${method === 'POST' ? 'bloqueado(s)' : 'desbloqueado(s)'}.`);
+    await loadRoomAvailability();
   } catch(err) { showToast('Erro de ligação.'); }
 }
 
-async function unblockSelectedDates() {
-  const roomId = document.getElementById('avail-room-select')?.value;
-  if (!roomId) { showToast('Seleciona um quarto primeiro.'); return; }
-  if (adminSelectedDates.size === 0) { showToast('Seleciona pelo menos uma data.'); return; }
-
-  try {
-    const res = await fetch(`${API}/availability/block`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
-      body: JSON.stringify({ roomId, dates: [...adminSelectedDates] })
-    });
-    if (res.ok) {
-      showToast(`✓ ${adminSelectedDates.size} data(s) desbloqueada(s).`);
-      adminSelectedDates.clear();
-      loadRoomAvailability();
-    } else {
-      showToast('Erro ao desbloquear datas.');
-    }
-  } catch(err) { showToast('Erro de ligação.'); }
-}
+function blockSelectedDates() { return changeSelectedDates('POST'); }
+function unblockSelectedDates() { return changeSelectedDates('DELETE'); }
 
 // ── Toast ─────────────────────────────────────────────────
 function showToast(msg) {

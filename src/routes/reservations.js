@@ -6,6 +6,7 @@ const { validateEmail, normalizePhoneNumber } = require('../lib/contactValidatio
 const { requireAuth } = require('../middleware/auth');
 const { normalizeParty, validateParty, countedGuests, calculateQuote } = require('../lib/pricing');
 const { loadPricing } = require('../lib/priceRules');
+const { blockedConflictWhere } = require('../lib/blockedDates');
 const { sendReservationConfirmation, sendReservationPaymentLink, sendReservationStatusUpdate, sendAdminNotification } = require('../services/email');
 const { getStripeClient, refundPaymentIntent } = require('../services/stripe');
 const router = express.Router();
@@ -92,7 +93,7 @@ router.post('/', async (req, res, next) => {
       }
 
       const blockedConflict = await transaction.blockedDate.findFirst({
-        where: { roomId, date: { gte: ciDate, lt: coDate } },
+        where: blockedConflictWhere(ciDate, coDate, roomId),
       });
       if (blockedConflict) {
         const error = new Error('O quarto está bloqueado para parte das datas selecionadas.');
@@ -287,10 +288,7 @@ async function approveReservationForPayment(reservation) {
       }
 
       const blockedConflict = await transaction.blockedDate.findFirst({
-        where: {
-          roomId: reservation.roomId,
-          date: { gte: reservation.checkIn, lt: reservation.checkOut },
-        },
+        where: blockedConflictWhere(reservation.checkIn, reservation.checkOut, reservation.roomId),
       });
       if (blockedConflict) {
         const error = new Error('A unidade foi bloqueada para parte destas datas.');
