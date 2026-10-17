@@ -1,9 +1,8 @@
 // setup-db.js — cria tabelas e popula dados iniciais
-require('dotenv').config();
-const { PrismaClient } = require('@prisma/client');
+require('dotenv').config({ quiet: true });
 const bcrypt = require('bcryptjs');
 
-const prisma = new PrismaClient();
+const prisma = require('./src/lib/prismaClient').createPrismaClient();
 
 async function main() {
   console.log('🔧 A criar tabelas...');
@@ -240,23 +239,34 @@ async function main() {
     }
   }
 
-  const rooms = [
-    { name: 'Suite Panorâmica', type: 'Suite', description: 'Vista deslumbrante sobre a serra, cama king-size e banheira de hidromassagem privativa.', price: 185, capacity: 2, amenities: ['King-size','Vista serra','Jacuzzi','AC','Varanda','Wi-Fi','TV'] },
-    { name: 'Quarto Deluxe', type: 'Deluxe', description: 'Espaçoso e acolhedor, com decoração em madeira natural e casa de banho em pedra.', price: 120, capacity: 2, amenities: ['Queen-size','Casa banho privada','AC','Wi-Fi','TV'] },
-    { name: 'Quarto Superior', type: 'Superior', description: 'Vistas para o jardim e floresta, com cama de casal e ambiente sereno.', price: 95, capacity: 2, amenities: ['Casal','Vista jardim','AC','Wi-Fi'] },
-    { name: 'Quarto Twin', type: 'Twin', description: 'Duas camas individuais, ideal para amigos ou famílias.', price: 85, capacity: 2, amenities: ['2 camas','AC','Wi-Fi','TV'] },
-    { name: 'Quarto Lareira', type: 'Especial', description: 'Lareira a lenha para noites frias de inverno, cama king e ambiente íntimo.', price: 145, capacity: 2, amenities: ['King-size','Lareira','AC','Vista'] },
-    { name: 'Suite Familiar', type: 'Suite', description: 'Dois quartos comunicantes, perfeita para famílias. Sala de estar privativa.', price: 220, capacity: 4, amenities: ['2 quartos','Sala estar','Cozinha','AC','Wi-Fi'] },
-  ];
-
-  for (const r of rooms) {
-    const amenitiesLiteral = `'{${r.amenities.map(a => `"${a}"`).join(',')}}'`;
-    await prisma.$executeRawUnsafe(`
-      INSERT INTO "Room" ("id", "name", "type", "description", "pricePerNight", "capacity", "sizeSqm", "bedrooms", "beds", "amenities", "images", "bookingIcalUrl", "airbnbIcalUrl")
-      VALUES ('${uuidv4()}', '${r.name.replace(/'/g, "''")}', '${r.type}', '${r.description.replace(/'/g, "''")}', ${r.price}, ${r.capacity}, ${r.sizeSqm || 'NULL'}, ${r.bedrooms || 'NULL'}, ${r.beds || 'NULL'}, ${amenitiesLiteral}, '{}', ${r.bookingIcalUrl ? `'${r.bookingIcalUrl.replace(/'/g, "''")}'` : 'NULL'}, ${r.airbnbIcalUrl ? `'${r.airbnbIcalUrl.replace(/'/g, "''")}'` : 'NULL'})
-      ON CONFLICT ("name") DO NOTHING;
-    `);
-    console.log(`✓ ${r.name}`);
+  // Unidades iniciais: só numa base de dados vazia (instalação nova ou reposição).
+  // Numa base existente nada é alterado: preços e textos são geridos no painel.
+  const [{ count: roomCount }] = await prisma.$queryRaw`SELECT COUNT(*)::int AS count FROM "Room"`;
+  if (roomCount === 0) {
+    const rooms = [
+    {
+      name: "Casa do Ferreiro T2", type: "T2",
+      description: "Apartamento T2 com sala ampla, cozinha equipada, varanda e vista para a serra.",
+      pricePerNight: 160, capacity: 6, baseOccupancy: 4,
+      sizeSqm: 90, bedrooms: 2, beds: 3,
+      amenities: ["Cozinha", "Wi-Fi", "TV", "Aquecimento", "Varanda", "Roupa de cama"],
+    },
+    {
+      name: "Casa do Ferreiro T3", type: "T3",
+      description: "Espaçosa unidade T3 com jardim privado, sala de estar com lareira e três quartos confortáveis.",
+      pricePerNight: 220, capacity: 8, baseOccupancy: 6,
+      sizeSqm: 120, bedrooms: 3, beds: 4,
+      amenities: ["Lareira", "Cozinha", "Wi-Fi", "TV", "Jardim privado", "Roupa de cama"],
+    },
+    ];
+    for (const r of rooms) {
+      await prisma.$executeRaw`
+        INSERT INTO "Room" ("id", "name", "type", "description", "pricePerNight", "capacity", "baseOccupancy", "sizeSqm", "bedrooms", "beds", "amenities", "images")
+        VALUES (${uuidv4()}, ${r.name}, ${r.type}, ${r.description}, ${r.pricePerNight}, ${r.capacity}, ${r.baseOccupancy}, ${r.sizeSqm}, ${r.bedrooms}, ${r.beds}, ${r.amenities}, '{}')
+        ON CONFLICT ("name") DO NOTHING;
+      `;
+      console.log(`✓ ${r.name}`);
+    }
   }
 
   console.log('✅ Base de dados pronta!');

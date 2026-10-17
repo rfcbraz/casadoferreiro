@@ -1,6 +1,6 @@
 const { z } = require('zod');
 
-const emailSchema = z.string().trim().max(254).email();
+const emailSchema = z.string().trim().max(254).pipe(z.email());
 
 function validateEmail(email) {
   return emailSchema.safeParse(email);

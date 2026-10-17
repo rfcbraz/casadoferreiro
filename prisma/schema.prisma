@@ -4,8 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "postgresql" // endereço em prisma.config.mjs (DATABASE_URL)
 }
 
 model Room {

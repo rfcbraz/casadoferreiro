@@ -1,10 +1,9 @@
 // src/seed.js
 // Popula a base de dados com dados iniciais
-require('dotenv').config();
-const { PrismaClient } = require('@prisma/client');
+require('dotenv').config({ quiet: true });
 const bcrypt = require('bcryptjs');
 
-const prisma = new PrismaClient();
+const prisma = require('./lib/prismaClient').createPrismaClient();
 
 async function main() {
   console.log('🌱 A popular a base de dados...');

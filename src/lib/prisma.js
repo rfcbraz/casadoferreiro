@@ -1,3 +1,3 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-module.exports = prisma;
+// Ligação partilhada por todo o servidor
+const { createPrismaClient } = require('./prismaClient');
+module.exports = createPrismaClient();

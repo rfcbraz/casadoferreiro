@@ -1,5 +1,5 @@
 // src/index.js
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -120,8 +120,9 @@ app.use((req, res) => {
 
 // Error handler global
 app.use((err, req, res, next) => {
-  console.error(err.stack);
   const status = err.status || err.statusCode || 500;
+  // Só os erros do servidor ficam nos registos com detalhe; respostas previstas (4xx) não são falhas
+  if (status >= 500) console.error(err.stack);
   // Erros previstos (4xx) mostram a mensagem; erros internos não revelam detalhes técnicos
   res.status(status).json({
     error: status < 500 ? err.message : 'Ocorreu um erro inesperado. Tente novamente dentro de momentos.'

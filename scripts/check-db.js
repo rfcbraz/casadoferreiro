@@ -1,10 +1,9 @@
 #!/usr/bin/env node
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
-const { PrismaClient } = require('@prisma/client');
 
 async function main() {
-  const prisma = new PrismaClient();
+  const prisma = require('../src/lib/prismaClient').createPrismaClient();
   const databaseUrl = process.env.DATABASE_URL;
 
   if (!databaseUrl) {

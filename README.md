@@ -78,7 +78,7 @@ Nunca colocar valores reais neste repositório: é público. O modelo está em [
 
 **Site e painel (GitHub Pages)** — o workflow [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml) copia `index.html`, `admin.html` e `assets/` em cada push para `main`.
 
-**API (Railway)** — deploy automático em cada push para `main`. O arranque ([`start.js`](start.js)) corre [`setup-db.js`](setup-db.js), que cria ou atualiza as tabelas e colunas necessárias; não é preciso correr migrações à mão.
+**API (Railway)** — deploy automático em cada push para `main`. Requer Node 22.12 ou mais recente (Prisma 7). O endereço da base de dados é lido de `DATABASE_URL` em [`prisma.config.mjs`](prisma.config.mjs) e a ligação usa o driver `pg` ([`src/lib/prismaClient.js`](src/lib/prismaClient.js)). O arranque ([`start.js`](start.js)) corre [`setup-db.js`](setup-db.js), que cria ou atualiza as tabelas e colunas necessárias; não é preciso correr migrações à mão.
 
 ### Domínio `casadoferreirovn.pt`
 
@@ -99,7 +99,7 @@ Os registos de email (MX, SPF, DKIM da securemail e do Resend, `send`) são inde
 npm install
 cp .env.example .env   # preencher com valores de teste
 npm run db:check       # testa a ligação à base de dados
-npm run dev            # API em http://localhost:3001
+npm run dev            # API em http://localhost:3001 (reinicia ao gravar ficheiros)
 node --test src/lib/*.test.js
 ```
 
