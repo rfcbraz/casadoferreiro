@@ -249,15 +249,17 @@ async function sendReservationStatusUpdate(reservation, newStatus) {
   const ref = reference(reservation);
   const statusKey = newStatus === 'CANCELLED' && reservation.stripeRefundId ? 'CANCELLED_REFUND' : newStatus;
   const [label, message] = t.status[statusKey] || [newStatus, ''];
+  const isDeclined = newStatus === 'DECLINED';
+  const siteUrl = `${String(process.env.FRONTEND_URL || 'https://casadoferreirovn.pt').replace(/\/$/, '')}/${locale === 'pt' ? '' : `?lang=${locale}`}#availability`;
 
   const html = baseTemplate(`
     <div class="header">
       <h1>Casa do Ferreiro</h1>
-      <p>${t.updateTitle(label)}</p>
+      <p>${isDeclined ? t.declined.title : t.updateTitle(label)}</p>
     </div>
     <div class="body">
       <p>${t.dear(escapeHtml(guest.name))}</p>
-      <p>${message}</p>
+      <p>${isDeclined ? t.declined.message : message}</p>
       <div class="box">
         ${boxRow(t.reference, `#${ref}`)}
         ${boxRow(t.unit, escapeHtml(reservation.room.name))}
@@ -266,6 +268,7 @@ async function sendReservationStatusUpdate(reservation, newStatus) {
         ${boxRow(t.total, euros(reservation.totalPrice))}
       </div>
       ${['CONFIRMED', 'PAID'].includes(newStatus) ? promotionNote(reservation, locale) + scheduleNote(locale) : ''}
+      ${isDeclined ? `<p>${t.declined.invite}</p><p><a href="${siteUrl}" class="btn">${t.declined.button}</a></p>` : ''}
     </div>
     ${guestFooter(locale)}
   `, locale);
@@ -274,7 +277,7 @@ async function sendReservationStatusUpdate(reservation, newStatus) {
     from: process.env.EMAIL_FROM,
     to: guest.email,
     replyTo: RESERVATIONS_EMAIL,
-    subject: t.updateSubject(label, ref),
+    subject: isDeclined ? t.declined.subject(ref) : t.updateSubject(label, ref),
     html,
   });
 }
