@@ -1,7 +1,7 @@
 // src/routes/reservations.js
 const express = require('express');
 const prisma = require('../lib/prisma');
-const { MINIMUM_STAY_NIGHTS, CHECK_IN_DATE_ERROR, isCheckInDateAllowed } = require('../lib/reservationRules');
+const { MINIMUM_STAY_NIGHTS, stayDatesError } = require('../lib/reservationRules');
 const { validateEmail, normalizePhoneNumber } = require('../lib/contactValidation');
 const { requireAuth } = require('../middleware/auth');
 const { normalizeParty, validateParty, countedGuests, calculateQuote } = require('../lib/pricing');
@@ -56,6 +56,9 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'As observações não podem ter mais de 2000 caracteres.' });
     }
 
+    const datesError = stayDatesError(checkIn, checkOut);
+    if (datesError) return res.status(400).json({ error: datesError, minimumStayNights: MINIMUM_STAY_NIGHTS });
+
     const turnstile = await verifyTurnstile(turnstileToken, req.ip);
     if (!turnstile.success) return res.status(403).json({ error: TURNSTILE_ERROR });
 
@@ -71,23 +74,9 @@ router.post('/', async (req, res, next) => {
       return res.status(429).json({ error: 'Já existem vários pedidos pendentes para este email. Aguarde a resposta do proprietário.' });
     }
 
-    const ciDate = new Date(checkIn);
-    const coDate = new Date(checkOut);
-
-    if (isNaN(ciDate) || isNaN(coDate) || ciDate >= coDate) {
-      return res.status(400).json({ error: 'Datas inválidas.' });
-    }
+    const ciDate = new Date(`${checkIn}T00:00:00Z`);
+    const coDate = new Date(`${checkOut}T00:00:00Z`);
     const nights = Math.round((coDate - ciDate) / (1000 * 60 * 60 * 24));
-    if (nights < MINIMUM_STAY_NIGHTS) {
-      return res.status(400).json({
-        error: `A estadia mínima é de ${MINIMUM_STAY_NIGHTS} noites consecutivas.`,
-        minimumStayNights: MINIMUM_STAY_NIGHTS,
-      });
-    }
-
-    if (!isCheckInDateAllowed(checkIn)) {
-      return res.status(400).json({ error: CHECK_IN_DATE_ERROR });
-    }
 
     // Verificar quarto
     const room = await prisma.room.findUnique({ where: { id: roomId } });
@@ -226,7 +215,9 @@ router.get('/:id', requireAuth, async (req, res, next) => {
 // GET /api/reservations — listar todas (admin)
 router.get('/', requireAuth, async (req, res, next) => {
   try {
-    const { status, roomId, from, to, page = 1, limit = 20 } = req.query;
+    const { status, roomId, from, to } = req.query;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 20));
     const where = {};
     if (status) where.status = status;
     if (roomId) where.roomId = roomId;
@@ -241,13 +232,13 @@ router.get('/', requireAuth, async (req, res, next) => {
         where,
         include: { room: true, guest: true },
         orderBy: { createdAt: 'desc' },
-        skip: (parseInt(page) - 1) * parseInt(limit),
-        take: parseInt(limit),
+        skip: (page - 1) * limit,
+        take: limit,
       }),
       prisma.reservation.count({ where }),
     ]);
 
-    res.json({ reservations, total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit)) });
+    res.json({ reservations, total, page, pages: Math.ceil(total / limit) });
   } catch (err) { next(err); }
 });
 

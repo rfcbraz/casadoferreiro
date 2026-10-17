@@ -83,16 +83,17 @@ function parseICalEvents(content) {
   return events.filter(event => event.startDate && event.endDate);
 }
 
+// Dias sempre em UTC (as datas das reservas são guardadas à meia-noite UTC),
+// para o resultado não depender do fuso horário do servidor
 function normalizeDay(date) {
   const normalized = new Date(date);
-  normalized.setHours(0, 0, 0, 0);
-  normalized.setMilliseconds(0);
+  normalized.setUTCHours(0, 0, 0, 0);
   return normalized;
 }
 
 function addDays(date, days) {
   const next = new Date(date);
-  next.setDate(next.getDate() + days);
+  next.setUTCDate(next.getUTCDate() + days);
   return next;
 }
 
@@ -185,11 +186,16 @@ async function syncRoomIcalFeed(roomId, source, url, label) {
 
   let content;
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
     if (!response.ok) {
       throw new Error(`Falha a carregar ${label} iCal: ${response.status} ${response.statusText}`);
     }
     content = await response.text();
+    // Uma página de erro ou de login (ex.: link expirado) não é um calendário: manter as datas que já existem
+    // em vez de as apagar todas
+    if (!/BEGIN:VCALENDAR/.test(content)) {
+      throw new Error(`O link ${label} não devolveu um calendário iCal.`);
+    }
   } catch (error) {
     console.error('Erro ao importar iCal:', error.message);
     return { roomId, source, error: error.message };

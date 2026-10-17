@@ -35,7 +35,7 @@ async function sendMail({ from, to, replyTo, subject, html }) {
 
 function formatDate(date) {
   return new Date(date).toLocaleDateString('pt-PT', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC'
   });
 }
 
@@ -170,7 +170,7 @@ async function sendReservationConfirmation(reservation) {
     </div>
     <div class="footer">
       <p>Casa do Ferreiro · Venda Nova, Montalegre, Portugal</p>
-      <p>© 2026 Casa do Ferreiro. Todos os direitos reservados.</p>
+      <p>© ${new Date().getFullYear()} Casa do Ferreiro. Todos os direitos reservados.</p>
     </div>
   `);
 
@@ -263,18 +263,24 @@ async function sendReservationStatusUpdate(reservation, newStatus) {
   });
 }
 
+// Aviso ao proprietário: pedido novo (a aprovar) ou pagamento recebido (reserva confirmada)
 async function sendAdminNotification(reservation) {
   const { room } = reservation;
   const guest = guestContact(reservation);
   const { notes } = splitSpecialRequests(reservation.specialRequests);
+  const isPaid = reservation.status === 'PAID';
+  const ref = reservation.id.slice(0, 8).toUpperCase();
+  const adminUrl = `${String(process.env.FRONTEND_URL || 'https://casadoferreirovn.pt').replace(/\/$/, '')}/admin.html`;
 
   const html = baseTemplate(`
     <div class="header">
       <h1>Casa do Ferreiro</h1>
-      <p>Nova Reserva Recebida</p>
+      <p>${isPaid ? 'Pagamento recebido' : 'Novo pedido de reserva'}</p>
     </div>
     <div class="body">
-      <p>Foi recebido um novo pedido de reserva que aguarda aprovação.</p>
+      <p>${isPaid
+        ? 'O hóspede pagou e a reserva está confirmada. As datas já estão ocupadas no calendário.'
+        : 'Foi recebido um novo pedido de reserva que aguarda aprovação.'}</p>
       <div class="box">
         <div class="box-row"><span class="box-label">Referência</span><span class="box-value">#${reservation.id.slice(0,8).toUpperCase()}</span></div>
         <div class="box-row"><span class="box-label">Hóspede</span><span class="box-value">${escapeHtml(guest.name)}</span></div>
@@ -287,7 +293,7 @@ async function sendAdminNotification(reservation) {
         <div class="box-row"><span class="box-label">Total</span><span class="box-value">€${reservation.totalPrice.toFixed(2)}</span></div>
         ${notes ? `<div class="box-row"><span class="box-label">Observações</span><span class="box-value">${escapeHtml(notes).replace(/\n/g, '<br>')}</span></div>` : ''}
       </div>
-      <a href="${process.env.FRONTEND_URL}/admin" class="btn">Ver no Painel</a>
+      <a href="${adminUrl}" class="btn">Ver no Painel</a>
     </div>
     <div class="footer"><p>Casa do Ferreiro · Painel de Gestão</p></div>
   `);
@@ -295,7 +301,9 @@ async function sendAdminNotification(reservation) {
   await sendMail({
     from: process.env.EMAIL_FROM,
     to: RESERVATIONS_EMAIL,
-    subject: `Novo pedido de reserva: ${String(guest.name).replace(/[\r\n]/g, ' ')} — ${room.name}`,
+    subject: isPaid
+      ? `Reserva paga #${ref}: ${String(guest.name).replace(/[\r\n]/g, ' ')} — ${room.name}`
+      : `Novo pedido de reserva: ${String(guest.name).replace(/[\r\n]/g, ' ')} — ${room.name}`,
     html,
   });
 }

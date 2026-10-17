@@ -5,6 +5,8 @@ const { requireAuth } = require('../middleware/auth');
 const { normalizeParty, validateParty, calculateQuote } = require('../lib/pricing');
 const { loadPricing } = require('../lib/priceRules');
 const { publicRoom } = require('../lib/publicRoom');
+const { MAXIMUM_STAY_NIGHTS } = require('../lib/reservationRules');
+const { syncExternalCalendars } = require('../services/ical');
 const router = express.Router();
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -58,6 +60,10 @@ router.get('/:id/quote', async (req, res, next) => {
     const { checkIn, checkOut } = req.query;
     if (!DATE_PATTERN.test(checkIn || '') || !DATE_PATTERN.test(checkOut || '') || checkIn >= checkOut) {
       return res.status(400).json({ error: 'Datas inválidas.' });
+    }
+    const nights = Math.round((new Date(`${checkOut}T00:00:00Z`) - new Date(`${checkIn}T00:00:00Z`)) / 86400000);
+    if (!(nights <= MAXIMUM_STAY_NIGHTS)) {
+      return res.status(400).json({ error: `A estadia máxima é de ${MAXIMUM_STAY_NIGHTS} noites.` });
     }
     const room = await prisma.room.findUnique({ where: { id: req.params.id } });
     if (!room || !room.isActive) return res.status(404).json({ error: 'Quarto não encontrado.' });
@@ -288,6 +294,19 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       data[key] = value;
     }
 
+    // Links iCal: vazio = sem sincronização; caso contrário só endereços https
+    for (const key of ['bookingIcalUrl', 'airbnbIcalUrl']) {
+      if (data[key] === undefined) continue;
+      const value = String(data[key] || '').trim();
+      if (!value) { data[key] = null; continue; }
+      let url;
+      try { url = new URL(value); } catch { url = null; }
+      if (!url || url.protocol !== 'https:' || value.length > 2000) {
+        return res.status(400).json({ error: 'O link iCal tem de ser um endereço https:// válido.' });
+      }
+      data[key] = value;
+    }
+
     // Normalize arrays (allow comma-separated strings from form submissions)
     if (data.amenities !== undefined && !Array.isArray(data.amenities)) {
       data.amenities = String(data.amenities).split(',').map(s => s.trim()).filter(Boolean);
@@ -312,6 +331,10 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       where: { id: req.params.id },
       data,
     });
+    // Link iCal novo ou alterado: importar já, sem esperar pela sincronização de hora a hora
+    if (data.bookingIcalUrl || data.airbnbIcalUrl) {
+      syncExternalCalendars().catch(err => console.error('Erro na sincronização iCal após editar unidade:', err));
+    }
     res.json(room);
   } catch (err) {
     console.error('Error updating room:', err);

@@ -382,6 +382,9 @@ const todayDateString = getPortugalDateString();
 const tomorrowDateString = getMinimumCheckInDate();
 
 // Anos completos desde a abertura (dezembro de 2024), atualizado automaticamente
+// Ano do rodapé sempre atual
+document.getElementById('copyright-year').textContent = new Date().getFullYear();
+
 const OPENING_DATE = '2024-12-01';
 (() => {
   const [y, m, d] = todayDateString.split('-').map(Number);

@@ -11,8 +11,8 @@ const router = express.Router();
 // POST /api/admin/login
 router.post('/login', async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
+    const { email, password } = req.body || {};
+    if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
       return res.status(400).json({ error: 'Email e password são obrigatórios.' });
     }
 
@@ -121,11 +121,11 @@ router.get('/stats', requireAuth, async (req, res, next) => {
 router.patch('/password', requireAuth, async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword) {
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || !currentPassword || !newPassword) {
       return res.status(400).json({ error: 'currentPassword e newPassword são obrigatórios.' });
     }
-    if (newPassword.length < 8) {
-      return res.status(400).json({ error: 'A nova password deve ter pelo menos 8 caracteres.' });
+    if (newPassword.length < 12) {
+      return res.status(400).json({ error: 'A nova password deve ter pelo menos 12 caracteres.' });
     }
 
     const admin = await prisma.admin.findUnique({ where: { id: req.admin.id } });

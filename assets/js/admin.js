@@ -3,6 +3,8 @@
 const ADMIN_TOKEN_KEY = 'casadaserra-admin-token';
 let adminToken = sessionStorage.getItem(ADMIN_TOKEN_KEY);
 let adminReservationsFilter = null;
+const ADMIN_RESERVATIONS_PAGE = 50;
+let adminReservationsLimit = ADMIN_RESERVATIONS_PAGE; // aumenta com "Mostrar mais"
 let adminReservationPollTimer = null;
 
 function showAdminPanel() {
@@ -66,6 +68,7 @@ function adminTab(tab, el) {
     resetAdminSelection();
     adminOccupiedDates = new Set();
     adminBlockedDates = new Set();
+    adminImportedDates = new Map();
     renderAdminCal();
     loadAdminRooms().then(() => { if (document.getElementById('avail-room-select')?.value) loadRoomAvailability(); });
   }
@@ -176,7 +179,9 @@ async function loadAdminReservations(statusFilter) {
   const tbody = document.getElementById('admin-reservations-body');
   if (!tbody) return;
   try {
-    const url = statusFilter ? `${API}/reservations?status=${statusFilter}` : `${API}/reservations`;
+    const params = new URLSearchParams({ limit: adminReservationsLimit });
+    if (statusFilter) params.set('status', statusFilter);
+    const url = `${API}/reservations?${params}`;
     const res = await fetch(url, { headers: { Authorization: `Bearer ${adminToken}` } });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -202,10 +207,13 @@ async function loadAdminReservations(statusFilter) {
         </div>
       </div>
       <div style="grid-column:1/-1;padding:.4rem 0 .6rem;border-bottom:1px solid var(--warm);font-size:.75rem;color:var(--muted);display:flex;gap:1.5rem;flex-wrap:wrap">
-        <span>💰 Total: <strong style="color:var(--dark)">€${r.totalPrice?.toFixed(2)}</strong></span>
+        <span>💰 Total: <strong style="color:var(--dark)">${adminMoney(r.totalPrice)}</strong></span>
         <span>👥 Hóspedes: <strong style="color:var(--dark)">${formatReservationParty(r)}</strong></span>
         ${r.specialRequests ? `<span>📝 Pedidos: <strong style="color:var(--dark)">${escapeAdminHtml(r.specialRequests)}</strong></span>` : ''}
-      </div>`).join('');
+      </div>`).join('')
+      + (data.total > data.reservations.length
+        ? `<div class="admin-more"><span>${data.reservations.length} de ${data.total}</span><button type="button" class="admin-action" onclick="showMoreReservations()">Mostrar mais</button></div>`
+        : '');
   } catch(err) {
     console.error('Erro reservas:', err);
     const message = document.createElement('div');
@@ -215,8 +223,14 @@ async function loadAdminReservations(statusFilter) {
   }
 }
 
+function showMoreReservations() {
+  adminReservationsLimit += ADMIN_RESERVATIONS_PAGE;
+  loadAdminReservations(adminReservationsFilter);
+}
+
 function filterReservations(status, el) {
   adminReservationsFilter = status;
+  adminReservationsLimit = ADMIN_RESERVATIONS_PAGE;
   document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
   loadAdminReservations(status);
@@ -341,6 +355,47 @@ async function copyIcalLink(inputId) {
     document.execCommand('copy');
   }
   showToast('✓ Link copiado.');
+}
+
+// ── Alterar password ──────────────────────────────────────
+function openPasswordModal() {
+  ['pw-current', 'pw-new', 'pw-confirm'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('pw-error').style.display = 'none';
+  document.getElementById('password-modal').hidden = false;
+  document.getElementById('pw-current').focus();
+}
+
+function closePasswordModal() {
+  document.getElementById('password-modal').hidden = true;
+}
+
+async function changeAdminPassword(event) {
+  event.preventDefault();
+  const currentPassword = document.getElementById('pw-current').value;
+  const newPassword = document.getElementById('pw-new').value;
+  const errEl = document.getElementById('pw-error');
+  const fail = message => { errEl.textContent = message; errEl.style.display = 'block'; };
+  if (newPassword.length < 12) return fail('A nova password deve ter pelo menos 12 caracteres.');
+  if (newPassword !== document.getElementById('pw-confirm').value) return fail('As duas passwords novas não são iguais.');
+  if (newPassword === currentPassword) return fail('A nova password tem de ser diferente da atual.');
+  const btn = document.getElementById('pw-submit');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/admin/password`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return fail(data.error || 'Não foi possível alterar a password.');
+    closePasswordModal();
+    logoutAdmin();
+    showToast('✓ Password alterada. Entre com a nova password.');
+  } catch (err) {
+    fail('Erro de ligação ao servidor.');
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function closeEditRoom() {
@@ -646,7 +701,15 @@ let adminRanges = [];          // [{ start, end }] inclusive
 let adminRangeStart = null;    // primeira data de um intervalo ainda por fechar
 let adminDrag = null;
 let adminOccupiedDates = new Set();
-let adminBlockedDates = new Set();
+let adminBlockedDates = new Set();   // bloqueios manuais
+let adminImportedDates = new Map();  // data → 'Booking.com' / 'Airbnb' (sincronizado, não se altera aqui)
+
+const IMPORTED_SOURCE_LABELS = { BOOKING_COM: 'Booking.com', AIRBNB: 'Airbnb' };
+
+// Noite ocupada por uma reserva do site ou por uma reserva sincronizada do Booking/Airbnb
+function isAdminOccupied(date) {
+  return adminOccupiedDates.has(date) || adminImportedDates.has(date);
+}
 
 function adminRangeDates(range) {
   const dates = [];
@@ -658,7 +721,7 @@ function adminRangeDates(range) {
 function adminSelectedDates() {
   const dates = new Set();
   adminRanges.forEach(range => adminRangeDates(range).forEach(date => {
-    if (!adminOccupiedDates.has(date)) dates.add(date);
+    if (!isAdminOccupied(date)) dates.add(date);
   }));
   return [...dates].sort();
 }
@@ -681,6 +744,7 @@ async function loadRoomAvailability() {
   resetAdminSelection();
   adminOccupiedDates = new Set();
   adminBlockedDates = new Set();
+  adminImportedDates = new Map();
   if (!roomId) { renderAdminCal(); return; }
 
   try {
@@ -692,7 +756,9 @@ async function loadRoomAvailability() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     adminOccupiedDates = new Set(data.occupiedDates || []);
-    adminBlockedDates = new Set((data.blockedDates || []).map(b => b.date));
+    const blocks = data.blockedDates || [];
+    adminBlockedDates = new Set(blocks.filter(b => !IMPORTED_SOURCE_LABELS[b.source]).map(b => b.date));
+    adminImportedDates = new Map(blocks.filter(b => IMPORTED_SOURCE_LABELS[b.source]).map(b => [b.date, IMPORTED_SOURCE_LABELS[b.source]]));
   } catch(err) {
     console.error('Erro disponibilidade admin:', err);
     showToast('Não foi possível carregar a disponibilidade.');
@@ -764,6 +830,9 @@ function renderAdminCal() {
     } else if (adminOccupiedDates.has(dateStr)) {
       el.classList.add('reserved');
       el.title = 'Reservado (não pode ser bloqueado)';
+    } else if (adminImportedDates.has(dateStr)) {
+      el.classList.add('imported');
+      el.title = `Ocupado no ${adminImportedDates.get(dateStr)} (sincronizado automaticamente)`;
     } else if (adminBlockedDates.has(dateStr)) {
       el.classList.add('blocked');
       el.title = 'Bloqueado';
@@ -827,7 +896,7 @@ function updateSelectedDatesPanel() {
   }
   const rows = adminRanges.map((range, index) => {
     const dates = adminRangeDates(range);
-    const reserved = dates.filter(date => adminOccupiedDates.has(date)).length;
+    const reserved = dates.filter(isAdminOccupied).length;
     return `<div class="admin-range-row">
       <span><strong>${formatAdminShortDate(range.start)}</strong> → <strong>${formatAdminShortDate(range.end)}</strong>
       · ${dates.length} dia(s)${reserved ? ` <em>(${reserved} reservado(s), ignorado(s))</em>` : ''}</span>
@@ -847,17 +916,21 @@ function renderMonthReservations() {
   const prefix = `${adminCalYear}-${String(adminCalMonth + 1).padStart(2, '0')}-`;
   const occupied = [...adminOccupiedDates].filter(date => date.startsWith(prefix));
   const blocked = [...adminBlockedDates].filter(date => date.startsWith(prefix)).sort();
+  const imported = [...adminImportedDates.keys()].filter(date => date.startsWith(prefix));
   if (!document.getElementById('avail-room-select')?.value) {
     el.textContent = 'Seleciona um quarto para ver as reservas.';
     return;
   }
-  if (occupied.length === 0 && blocked.length === 0) {
+  if (occupied.length === 0 && blocked.length === 0 && imported.length === 0) {
     el.textContent = 'Sem reservas ou bloqueios neste mês.';
     return;
   }
   let html = '';
   if (occupied.length > 0) {
     html += `<div style="margin-bottom:.75rem"><strong style="font-size:.78rem;color:var(--dark)">${occupied.length} dia(s) reservado(s)</strong></div>`;
+  }
+  if (imported.length > 0) {
+    html += `<div style="margin-bottom:.75rem"><strong style="font-size:.78rem;color:var(--dark)">${imported.length} noite(s) ocupada(s) no Booking.com/Airbnb</strong></div>`;
   }
   if (blocked.length > 0) {
     html += `<div><strong style="font-size:.78rem;color:var(--dark)">${blocked.length} dia(s) bloqueado(s):</strong><div style="margin-top:.4rem">${blocked.map(date => `<span style="display:inline-block;background:#5a1d1d;color:#f3dede;font-size:.75rem;padding:.2rem .6rem;border-radius:2px;margin:.2rem">${formatAdminShortDate(date)}</span>`).join('')}</div></div>`;

@@ -25,3 +25,15 @@ test('check-in today is allowed before 22:00, past dates never', () => {
   assert.equal(isCheckInDateAllowed('2026-10-14', now), false);
   assert.equal(isCheckInDateAllowed('2026-10-15', new Date('2026-10-15T21:30:00Z')), false);
 });
+
+test('stayDatesError aceita estadias normais e recusa formatos, extremos e datas distantes', () => {
+  const { stayDatesError } = require('./reservationRules');
+  const now = new Date('2026-10-17T10:00:00Z');
+  assert.equal(stayDatesError('2026-10-20', '2026-10-23', now), null);
+  assert.equal(stayDatesError('2026-10-20T15:00', '2026-10-23', now), 'Datas inválidas.');
+  assert.equal(stayDatesError('2026-10-23', '2026-10-20', now), 'Datas inválidas.');
+  assert.match(stayDatesError('2026-10-20', '2026-10-21', now), /mínima/);
+  assert.match(stayDatesError('2026-10-20', '2999-01-01', now), /máxima/);
+  assert.match(stayDatesError('2026-10-10', '2026-10-13', now), /já não está disponível/);
+  assert.match(stayDatesError('2029-01-01', '2029-01-05', now), /Ainda não é possível/);
+});

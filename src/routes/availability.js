@@ -2,7 +2,7 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const { requireAuth } = require('../middleware/auth');
-const { MINIMUM_STAY_NIGHTS, CHECK_IN_DATE_ERROR, getPortugalToday, isCheckInDateAllowed } = require('../lib/reservationRules');
+const { MINIMUM_STAY_NIGHTS, getPortugalToday, stayDatesError } = require('../lib/reservationRules');
 const { normalizeParty, calculateQuote } = require('../lib/pricing');
 const { loadPricing } = require('../lib/priceRules');
 const { blockedConflictWhere } = require('../lib/blockedDates');
@@ -18,23 +18,12 @@ router.get('/', async (req, res, next) => {
       return res.status(400).json({ error: 'checkIn e checkOut são obrigatórios.' });
     }
 
-    const ciDate = new Date(checkIn);
-    const coDate = new Date(checkOut);
+    const datesError = stayDatesError(checkIn, checkOut);
+    if (datesError) return res.status(400).json({ error: datesError, minimumStayNights: MINIMUM_STAY_NIGHTS });
 
-    if (isNaN(ciDate) || isNaN(coDate) || ciDate >= coDate) {
-      return res.status(400).json({ error: 'Datas inválidas.' });
-    }
-    if (!isCheckInDateAllowed(checkIn)) {
-      return res.status(400).json({ error: CHECK_IN_DATE_ERROR });
-    }
-
+    const ciDate = new Date(`${checkIn}T00:00:00Z`);
+    const coDate = new Date(`${checkOut}T00:00:00Z`);
     const nights = Math.round((coDate - ciDate) / (1000 * 60 * 60 * 24));
-    if (nights < MINIMUM_STAY_NIGHTS) {
-      return res.status(400).json({
-        error: `A estadia mínima é de ${MINIMUM_STAY_NIGHTS} noites consecutivas.`,
-        minimumStayNights: MINIMUM_STAY_NIGHTS,
-      });
-    }
 
     // Quartos com reservas que se sobrepõem ao período pedido
     const bookedRoomIds = await prisma.reservation.findMany({
@@ -194,7 +183,11 @@ router.post('/block', requireAuth, async (req, res, next) => {
 // DELETE /api/availability/block — desbloquear datas (admin)
 router.delete('/block', requireAuth, async (req, res, next) => {
   try {
-    const { roomId, dates } = req.body;
+    const { roomId, dates } = req.body || {};
+    if (!roomId || !Array.isArray(dates) || dates.length === 0 || dates.length > 731
+      || dates.some(d => !/^\d{4}-\d{2}-\d{2}$/.test(String(d)))) {
+      return res.status(400).json({ error: 'roomId e dates[] (AAAA-MM-DD) são obrigatórios.' });
+    }
     await prisma.blockedDate.deleteMany({
       where: {
         roomId,

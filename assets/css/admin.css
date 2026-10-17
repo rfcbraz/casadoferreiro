@@ -110,3 +110,12 @@ a.admin-close{display:block;text-align:center;text-decoration:none}
 .ical-group h4{font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .ical-copy{display:flex;gap:.5rem}
 .ical-copy input{flex:1;min-width:0;font-size:.78rem!important;color:var(--muted)!important}
+.admin-cal-day.imported{background:#dbe4f0;color:#33507a;cursor:not-allowed}
+.admin-more{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.5rem;font-size:.8rem;color:var(--muted)}
+.admin-password-btn{margin-bottom:.5rem}
+.admin-modal{position:fixed;inset:0;z-index:800;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(42,33,24,.7);backdrop-filter:blur(4px)}
+.admin-modal[hidden]{display:none}
+.admin-modal-card{position:relative;background:var(--white);border-radius:4px;padding:2.5rem;width:420px;max-width:100%;display:grid;gap:1rem}
+.admin-modal-card h3{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:300}
+.admin-modal-close{position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted)}
+.admin-modal-card .price-admin-btn{margin-top:0}

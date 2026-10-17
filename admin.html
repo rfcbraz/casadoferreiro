@@ -3,7 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://casadaserra-production.up.railway.app; frame-src 'none'; form-action 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests">
 <meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/images/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
+<meta name="theme-color" content="#2a2118">
 <title>Painel de Gestão · Casa do Ferreiro</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -39,6 +45,7 @@
       <div class="admin-nav-item" onclick="adminTab('stats',this)">📊 Estatísticas</div>
     </div>
     <a class="admin-close" href="./">← Voltar ao site</a>
+    <button class="admin-logout admin-password-btn" type="button" onclick="openPasswordModal()">Alterar password</button>
     <button class="admin-logout" type="button" onclick="logoutAdmin()">Terminar sessão</button>
   </div>
   <div class="admin-main">
@@ -67,6 +74,20 @@
       </div>
     </div>
 
+    <!-- MODAL ALTERAR PASSWORD -->
+    <div id="password-modal" class="admin-modal" hidden>
+      <form class="admin-modal-card" onsubmit="changeAdminPassword(event)">
+        <button type="button" class="admin-modal-close" onclick="closePasswordModal()" aria-label="Fechar">×</button>
+        <h3>Alterar password</h3>
+        <p class="price-admin-help" style="margin:0 0 1.25rem">Mínimo de 12 caracteres. Depois de alterar, todas as sessões abertas terminam e é preciso entrar de novo.</p>
+        <div class="form-field"><label for="pw-current">Password atual</label><input type="password" id="pw-current" autocomplete="current-password" required></div>
+        <div class="form-field"><label for="pw-new">Nova password</label><input type="password" id="pw-new" autocomplete="new-password" minlength="12" required></div>
+        <div class="form-field"><label for="pw-confirm">Repetir nova password</label><input type="password" id="pw-confirm" autocomplete="new-password" minlength="12" required></div>
+        <p class="admin-login-error" id="pw-error" role="alert"></p>
+        <button type="submit" class="price-admin-btn" id="pw-submit">Alterar password</button>
+      </form>
+    </div>
+
     <!-- MODAL EDITAR QUARTO -->
     <div id="edit-room-modal" style="display:none;position:fixed;inset:0;z-index:800;align-items:center;justify-content:center;background:rgba(42,33,24,.7);backdrop-filter:blur(4px)">
       <div style="background:var(--white);border-radius:4px;padding:2.5rem;width:520px;max-width:95%;max-height:90vh;overflow-y:auto;position:relative">
@@ -74,21 +95,21 @@
         <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:300;margin-bottom:1.5rem">Editar Quarto</h3>
         <input type="hidden" id="edit-room-id">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
-          <div class="form-field" style="grid-column:1/-1"><label>Nome</label><input type="text" id="edit-room-name"></div>
-          <div class="form-field"><label>Tipo</label><input type="text" id="edit-room-type"></div>
-          <div class="form-field"><label>Preço / noite (€)</label><input type="number" id="edit-room-price"></div>
-          <div class="form-field"><label>Capacidade</label><input type="number" id="edit-room-capacity"></div>
-          <div class="form-field"><label>m²</label><input type="number" id="edit-room-size"></div>
-          <div class="form-field"><label>Quartos</label><input type="number" id="edit-room-bedrooms"></div>
-          <div class="form-field"><label>Camas</label><input type="number" id="edit-room-beds"></div>
-          <div class="form-field"><label>Estado</label>
+          <div class="form-field" style="grid-column:1/-1"><label for="edit-room-name">Nome</label><input type="text" id="edit-room-name"></div>
+          <div class="form-field"><label for="edit-room-type">Tipo</label><input type="text" id="edit-room-type"></div>
+          <div class="form-field"><label for="edit-room-price">Preço / noite (€)</label><input type="number" id="edit-room-price"></div>
+          <div class="form-field"><label for="edit-room-capacity">Capacidade</label><input type="number" id="edit-room-capacity"></div>
+          <div class="form-field"><label for="edit-room-size">m²</label><input type="number" id="edit-room-size"></div>
+          <div class="form-field"><label for="edit-room-bedrooms">Quartos</label><input type="number" id="edit-room-bedrooms"></div>
+          <div class="form-field"><label for="edit-room-beds">Camas</label><input type="number" id="edit-room-beds"></div>
+          <div class="form-field"><label for="edit-room-active">Estado</label>
             <select id="edit-room-active">
               <option value="true">Ativo</option>
               <option value="false">Inativo</option>
             </select>
           </div>
-          <div class="form-field" style="grid-column:1/-1"><label>Descrição</label><textarea id="edit-room-desc" style="min-height:80px;background:var(--cream);border:1px solid var(--warm);border-radius:2px;padding:.75rem 1rem;font-family:'Jost',sans-serif;font-size:.9rem;width:100%;outline:none;resize:vertical"></textarea></div>
-          <div class="form-field" style="grid-column:1/-1"><label>Comodidades (separadas por vírgula)</label><input type="text" id="edit-room-amenities"></div>
+          <div class="form-field" style="grid-column:1/-1"><label for="edit-room-desc">Descrição</label><textarea id="edit-room-desc" style="min-height:80px;background:var(--cream);border:1px solid var(--warm);border-radius:2px;padding:.75rem 1rem;font-family:'Jost',sans-serif;font-size:.9rem;width:100%;outline:none;resize:vertical"></textarea></div>
+          <div class="form-field" style="grid-column:1/-1"><label for="edit-room-amenities">Comodidades (separadas por vírgula)</label><input type="text" id="edit-room-amenities"></div>
           <div class="ical-group" style="grid-column:1/-1">
             <h4>Importar (colar aqui o link de exportação de cada plataforma)</h4>
             <div class="form-field"><label for="edit-room-booking-ical">Link iCal do Booking.com</label><input type="url" id="edit-room-booking-ical" placeholder="https://admin.booking.com/hotel/hoteladmin/ical.html?t=…"></div>
@@ -116,7 +137,7 @@
         <!-- Seletor de quarto -->
         <div>
           <div class="form-field" style="margin-bottom:1.5rem">
-            <label style="font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--earth)">Quarto</label>
+            <label for="avail-room-select" style="font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--earth)">Quarto</label>
             <select id="avail-room-select" onchange="loadRoomAvailability()" style="background:var(--cream);border:1px solid var(--warm);border-radius:2px;padding:.75rem 1rem;font-family:'Jost',sans-serif;font-size:.9rem;color:var(--dark);outline:none;width:100%">
               <option value="">Seleciona um quarto...</option>
             </select>
@@ -143,6 +164,7 @@
               <div style="display:flex;align-items:center;gap:.5rem;font-size:.72rem;color:var(--muted)"><div style="width:10px;height:10px;border-radius:2px;background:#dcfce7;border:1px solid #86efac"></div>Disponível</div>
               <div style="display:flex;align-items:center;gap:.5rem;font-size:.72rem;color:var(--muted)"><div style="width:10px;height:10px;border-radius:2px;background:#fee2e2;border:1px solid #fca5a5"></div>Reservado</div>
               <div style="display:flex;align-items:center;gap:.5rem;font-size:.72rem;color:var(--muted)"><div style="width:10px;height:10px;border-radius:2px;background:#5a1d1d;border:1px solid #5a1d1d"></div>Bloqueado</div>
+              <div style="display:flex;align-items:center;gap:.5rem;font-size:.72rem;color:var(--muted)"><div style="width:10px;height:10px;border-radius:2px;background:#dbe4f0;border:1px solid #9fb3cf"></div>Booking/Airbnb</div>
               <div style="display:flex;align-items:center;gap:.5rem;font-size:.72rem;color:var(--muted)"><div style="width:10px;height:10px;border-radius:2px;background:var(--accent)"></div>Selecionado</div>
             </div>
           </div>

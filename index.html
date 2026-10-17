@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://casadaserra-production.up.railway.app https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com https://www.google.com https://maps.google.com; form-action 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests">
 <title>Casa do Ferreiro · Turismo Rural em Venda Nova, Gerês</title>
 <meta name="description" content="Casas de férias T2 e T3 em frente à Albufeira de Venda Nova, Montalegre, junto à Serra do Gerês. Reserve diretamente: até 8 hóspedes, praia privada, Wi-Fi e estacionamento gratuito.">
 <meta property="og:type" content="website">
@@ -16,6 +17,37 @@
 <meta property="og:image:height" content="630">
 <meta property="og:locale" content="pt_PT">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/images/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
+<meta name="theme-color" content="#2a2118">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LodgingBusiness",
+  "name": "Casa do Ferreiro",
+  "description": "Casas de férias T2 e T3 em frente à Albufeira de Venda Nova, Montalegre, junto à Serra do Gerês.",
+  "url": "https://casadoferreirovn.pt/",
+  "image": "https://casadoferreirovn.pt/assets/images/og-image.jpg",
+  "logo": "https://casadoferreirovn.pt/assets/images/icon-512.png",
+  "telephone": "+351938750239",
+  "email": "reservas@casadoferreirovn.pt",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "Rua do Ferreiro 3",
+    "postalCode": "5470-504",
+    "addressLocality": "Venda Nova, Montalegre",
+    "addressCountry": "PT"
+  },
+  "checkinTime": "16:00",
+  "checkoutTime": "11:00",
+  "numberOfRooms": 2,
+  "sameAs": [
+    "https://www.facebook.com/profile.php?id=61574804381073",
+    "https://www.instagram.com/casadoferreirovn/"
+  ]
+}
+</script>
 <link rel="preload" as="image" href="assets/images/hero-reservoir.webp" type="image/webp" fetchpriority="high">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -74,15 +106,15 @@
 
 <div class="booking-bar">
   <div class="booking-field">
-    <div class="booking-field-label">Check-in</div>
+    <label class="booking-field-label" for="bar-checkin">Check-in</label>
     <input type="date" id="bar-checkin">
   </div>
   <div class="booking-field">
-    <div class="booking-field-label">Check-out</div>
+    <label class="booking-field-label" for="bar-checkout">Check-out</label>
     <input type="date" id="bar-checkout">
   </div>
   <div class="booking-field">
-    <div class="booking-field-label">Unidade</div>
+    <label class="booking-field-label" for="bar-room">Unidade</label>
     <select id="bar-room">
       <option value="" disabled selected>Selecione uma unidade</option>
       <option>Suite Panorâmica</option>
@@ -94,7 +126,7 @@
     </select>
   </div>
   <div class="booking-field">
-    <div class="booking-field-label">Hóspedes</div>
+    <label class="booking-field-label" for="bar-guests">Hóspedes</label>
     <select id="bar-guests">
       <option value="1">1 hóspede</option>
       <option value="2" selected>2 hóspedes</option>
@@ -202,7 +234,7 @@
       </div>
     </div>
     <div class="footer-bottom">
-      <div class="footer-copy">© 2026 Casa do Ferreiro. Todos os direitos reservados.</div>
+      <div class="footer-copy">© <span id="copyright-year">2026</span> Casa do Ferreiro. <span>Todos os direitos reservados.</span></div>
       <a class="footer-credit" href="https://www.rfcb.pt/" target="_blank" rel="noopener noreferrer">Site criado por rfcb</a>
       <a class="admin-link" href="admin.html" rel="nofollow" aria-label="Painel de gestão" title="Painel de gestão">⚙</a>
     </div>
@@ -270,7 +302,7 @@
     <h3>Fazer Reserva</h3>
     <p class="modal-sub">Envie o seu pedido; o proprietário irá aprová-lo antes do pagamento.</p>
     <div class="form-grid">
-      <div class="form-field"><label>Nome completo</label><input type="text" id="f-name" placeholder="João Silva"></div>
+      <div class="form-field"><label for="f-name">Nome completo</label><input type="text" id="f-name" placeholder="João Silva" autocomplete="name" maxlength="100" required></div>
       <div class="form-field"><label for="f-email">Email</label><input type="email" id="f-email" placeholder="joao@email.com" autocomplete="email" maxlength="254" required></div>
       <div class="form-field">
         <label for="f-phone">Telefone</label>
@@ -280,13 +312,13 @@
         </div>
         <small class="form-hint" id="phone-hint" aria-live="polite">Selecione o país e introduza o número.</small>
       </div>
-      <div class="form-field"><label>Unidade</label>
+      <div class="form-field"><label for="f-room">Unidade</label>
         <select id="f-room">
           <option value="">A carregar unidades...</option>
         </select>
       </div>
-      <div class="form-field"><label>Check-in</label><input type="date" id="f-checkin"></div>
-      <div class="form-field"><label>Check-out</label><input type="date" id="f-checkout"></div>
+      <div class="form-field"><label for="f-checkin">Check-in</label><input type="date" id="f-checkin"></div>
+      <div class="form-field"><label for="f-checkout">Check-out</label><input type="date" id="f-checkout"></div>
       <div class="form-field"><label for="f-arrival-time">Hora prevista de chegada</label><select id="f-arrival-time" required disabled><option value="">Selecione primeiro a unidade</option></select></div>
       <div class="form-field full"><label>Hóspedes por idade</label>
         <div class="age-groups">
@@ -298,7 +330,7 @@
         <small class="form-hint" id="guest-limit-hint"></small>
       </div>
       <div class="form-field full"><p class="form-hint" id="booking-policy-hint">Estadia mínima: 2 noites consecutivas. Check-out: até às 11:00. Berço para bebés dos 0 aos 2 anos, mediante pedido, com custo por noite; T2 com cama extra insuflável e sofá na sala; T3 com sofá-cama na sala.</p></div>
-      <div class="form-field full"><label>Observações sobre a estadia</label><textarea id="f-notes" placeholder="Informações adicionais sobre a sua reserva (opcional)..."></textarea></div>
+      <div class="form-field full"><label for="f-notes">Observações sobre a estadia</label><textarea id="f-notes" maxlength="1900" placeholder="Informações adicionais sobre a sua reserva (opcional)..."></textarea></div>
     </div>
     <div class="form-summary">
       <div class="summary-item"><strong id="s-room">—</strong>Quarto</div>
