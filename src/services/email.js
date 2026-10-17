@@ -141,7 +141,7 @@ async function sendReservationConfirmation(reservation) {
       <p>Pedido de Reserva Recebido</p>
     </div>
     <div class="body">
-      <p>Caro/a <strong>${guest.name}</strong>,</p>
+      <p>Caro/a <strong>${escapeHtml(guest.name)}</strong>,</p>
       <p>O seu pedido foi recebido e será analisado pelo proprietário. Se for aprovado, receberá um link para pagar e confirmar a reserva.</p>
       <div class="box">
         <div class="box-row"><span class="box-label">Referência</span><span class="box-value">#${reservation.id.slice(0,8).toUpperCase()}</span></div>
@@ -181,7 +181,7 @@ async function sendReservationPaymentLink(reservation, checkoutUrl) {
       <p>Reserva aprovada</p>
     </div>
     <div class="body">
-      <p>Caro/a <strong>${guest.name}</strong>,</p>
+      <p>Caro/a <strong>${escapeHtml(guest.name)}</strong>,</p>
       <p>O proprietário aprovou o seu pedido. Conclua o pagamento para confirmar definitivamente a reserva.</p>
       <div class="box">
         <div class="box-row"><span class="box-label">Referência</span><span class="box-value">#${reservation.id.slice(0,8).toUpperCase()}</span></div>
@@ -226,7 +226,7 @@ async function sendReservationStatusUpdate(reservation, newStatus) {
       <p>Atualização de Reserva — ${info.label}</p>
     </div>
     <div class="body">
-      <p>Caro/a <strong>${guest.name}</strong>,</p>
+      <p>Caro/a <strong>${escapeHtml(guest.name)}</strong>,</p>
       <p>${info.msg}</p>
       <div class="box">
         <div class="box-row"><span class="box-label">Referência</span><span class="box-value">#${reservation.id.slice(0,8).toUpperCase()}</span></div>
@@ -264,9 +264,9 @@ async function sendAdminNotification(reservation) {
       <p>Foi recebido um novo pedido de reserva que aguarda aprovação.</p>
       <div class="box">
         <div class="box-row"><span class="box-label">Referência</span><span class="box-value">#${reservation.id.slice(0,8).toUpperCase()}</span></div>
-        <div class="box-row"><span class="box-label">Hóspede</span><span class="box-value">${guest.name}</span></div>
-        <div class="box-row"><span class="box-label">Email</span><span class="box-value">${guest.email}</span></div>
-        <div class="box-row"><span class="box-label">Telefone</span><span class="box-value">${guest.phone || '—'}</span></div>
+        <div class="box-row"><span class="box-label">Hóspede</span><span class="box-value">${escapeHtml(guest.name)}</span></div>
+        <div class="box-row"><span class="box-label">Email</span><span class="box-value">${escapeHtml(guest.email)}</span></div>
+        <div class="box-row"><span class="box-label">Telefone</span><span class="box-value">${escapeHtml(guest.phone || '—')}</span></div>
         <div class="box-row"><span class="box-label">Quarto</span><span class="box-value">${room.name}</span></div>
         ${stayRows(reservation)}
         <div class="box-row"><span class="box-label">Hóspedes</span><span class="box-value">${partyLabel(reservation)}</span></div>
@@ -282,7 +282,7 @@ async function sendAdminNotification(reservation) {
   await sendMail({
     from: process.env.EMAIL_FROM,
     to: RESERVATIONS_EMAIL,
-    subject: `Novo pedido de reserva: ${guest.name} — ${room.name}`,
+    subject: `Novo pedido de reserva: ${String(guest.name).replace(/[\r\n]/g, ' ')} — ${room.name}`,
     html,
   });
 }

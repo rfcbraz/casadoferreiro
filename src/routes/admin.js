@@ -14,6 +14,11 @@ router.post('/login', async (req, res, next) => {
       return res.status(400).json({ error: 'Email e password são obrigatórios.' });
     }
 
+    // A antiga password por omissão está desativada (ver setup-db.js para a substituir)
+    if (password === 'admin1234') {
+      return res.status(401).json({ error: 'Esta password foi desativada por segurança. Defina ADMIN_PASSWORD no servidor.' });
+    }
+
     const admin = await prisma.admin.findUnique({ where: { email } });
     if (!admin) return res.status(401).json({ error: 'Credenciais inválidas.' });
 

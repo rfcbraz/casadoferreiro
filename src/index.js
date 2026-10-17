@@ -4,6 +4,7 @@ const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
 
 const reservationRoutes = require('./routes/reservations');
 const roomRoutes = require('./routes/rooms');
@@ -16,6 +17,10 @@ const { syncExternalCalendars } = require('./services/ical');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// O Railway está atrás de um proxy: sem isto, os limites de pedidos contavam o IP do proxy
+// (todos os visitantes partilhavam o mesmo limite) em vez do IP de cada visitante
+app.set('trust proxy', 1);
 
 // ── Segurança ──────────────────────────────────────────────
 app.use(helmet());
@@ -30,17 +35,40 @@ app.use('/webhooks', webhookRoutes);
 
 app.use(express.json());
 
+// Pedidos do painel com sessão de administrador válida não contam para o limite geral
+// (o painel atualiza as reservas a cada 30 segundos)
+function hasValidAdminToken(req) {
+  const header = req.headers.authorization || '';
+  if (!header.startsWith('Bearer ') || !process.env.JWT_SECRET) return false;
+  try {
+    jwt.verify(header.slice(7), process.env.JWT_SECRET);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Rate limiting geral
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   max: 100,
+  skip: hasValidAdminToken,
   message: { error: 'Demasiados pedidos. Tente novamente mais tarde.' }
 }));
 
-// Rate limiting mais apertado para reservas
+// Login do painel: 10 tentativas falhadas por 15 minutos e por IP
+app.use('/api/admin/login', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  skipSuccessfulRequests: true,
+  message: { error: 'Demasiadas tentativas de login. Tente novamente dentro de 15 minutos.' }
+}));
+
+// Rate limiting mais apertado para criar pedidos de reserva (só POST; o painel lê e altera reservas)
 app.use('/api/reservations', rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
   max: 20,
+  skip: req => req.method !== 'POST' || hasValidAdminToken(req),
   message: { error: 'Limite de reservas atingido. Tente novamente em 1 hora.' }
 }));
 

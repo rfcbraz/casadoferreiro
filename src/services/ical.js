@@ -1,4 +1,4 @@
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const prisma = require('../lib/prisma');
 
 function unfoldICal(ics) {
@@ -232,7 +232,7 @@ async function syncRoomIcalFeed(roomId, source, url, label) {
   const createData = dates
     .filter(date => !blockedManually.has(dateKey(date)))
     .map(date => ({
-      id: uuidv4(),
+      id: randomUUID(),
       roomId,
       date,
       reason: `${label} importado`,
@@ -277,7 +277,8 @@ function buildRoomCalendar(room, reservations, blockedDates) {
     events.push({
       uid: `reservation-${reservation.id}`,
       summary: `${reservation.status === 'AWAITING_PAYMENT' ? 'Reserva a aguardar pagamento' : 'Reserva confirmada'} — ${room.name}`,
-      description: `Hóspede: ${reservation.guest.name}\\nEmail: ${reservation.guest.email}\\nCheck-in: ${reservation.checkIn.toISOString().slice(0, 10)}\\nCheck-out: ${reservation.checkOut.toISOString().slice(0, 10)}`,
+      // Sem nome nem email do hóspede: este calendário é público para o Booking/Airbnb o poderem ler
+      description: `Check-in: ${reservation.checkIn.toISOString().slice(0, 10)}\\nCheck-out: ${reservation.checkOut.toISOString().slice(0, 10)}`,
       startDate: normalizeDay(reservation.checkIn),
       endDate: normalizeDay(reservation.checkOut),
       allDay: true,

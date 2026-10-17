@@ -196,17 +196,35 @@ async function main() {
   // Seed de dados
   console.log('🌱 A popular dados...');
 
-  const { v4: uuidv4 } = require('uuid');
+  const { randomUUID: uuidv4 } = require('crypto');
 
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@casadaserra.pt';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin1234';
-  const hashedPassword = await bcrypt.hash(adminPassword, 12);
+  // Administrador: só com ADMIN_EMAIL e ADMIN_PASSWORD definidos (nunca com uma password por omissão)
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  const strongPassword = typeof adminPassword === 'string' && adminPassword.length >= 12 && adminPassword !== 'admin1234';
+  if (adminEmail && strongPassword) {
+    const hashedPassword = await bcrypt.hash(adminPassword, 12);
+    await prisma.$executeRaw`
+      INSERT INTO "Admin" ("id", "email", "password", "name")
+      VALUES (${uuidv4()}, ${adminEmail}, ${hashedPassword}, 'Administrador')
+      ON CONFLICT ("email") DO NOTHING;
+    `;
+  } else {
+    console.warn('⚠️  ADMIN_EMAIL/ADMIN_PASSWORD (mínimo 12 caracteres) não definidos: administrador inicial não criado.');
+  }
 
-  await prisma.$executeRawUnsafe(`
-    INSERT INTO "Admin" ("id", "email", "password", "name")
-    VALUES ('${uuidv4()}', '${adminEmail}', '${hashedPassword}', 'Administrador')
-    ON CONFLICT ("email") DO NOTHING;
-  `);
+  // Administradores que ainda tenham a antiga password por omissão: substituir por ADMIN_PASSWORD
+  const admins = await prisma.$queryRaw`SELECT "id", "email", "password" FROM "Admin"`;
+  for (const admin of admins) {
+    if (!(await bcrypt.compare('admin1234', admin.password))) continue;
+    if (strongPassword) {
+      const hashedPassword = await bcrypt.hash(adminPassword, 12);
+      await prisma.$executeRaw`UPDATE "Admin" SET "password" = ${hashedPassword} WHERE "id" = ${admin.id}`;
+      console.log(`🔐 Password por omissão de ${admin.email} substituída por ADMIN_PASSWORD.`);
+    } else {
+      console.error(`🚨 ${admin.email} usa a password por omissão, que está bloqueada. Defina ADMIN_PASSWORD (mínimo 12 caracteres) e reinicie.`);
+    }
+  }
 
   const rooms = [
     { name: 'Suite Panorâmica', type: 'Suite', description: 'Vista deslumbrante sobre a serra, cama king-size e banheira de hidromassagem privativa.', price: 185, capacity: 2, amenities: ['King-size','Vista serra','Jacuzzi','AC','Varanda','Wi-Fi','TV'] },

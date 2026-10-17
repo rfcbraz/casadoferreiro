@@ -10,12 +10,15 @@ async function main() {
   console.log('🌱 A popular a base de dados...');
 
   // Admin
-  const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'admin1234', 12);
+  if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD.length < 12) {
+    throw new Error('Defina ADMIN_EMAIL e ADMIN_PASSWORD (mínimo 12 caracteres) antes de correr o seed.');
+  }
+  const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 12);
   const admin = await prisma.admin.upsert({
-    where: { email: process.env.ADMIN_EMAIL || 'admin@casadaserra.pt' },
+    where: { email: process.env.ADMIN_EMAIL },
     update: {},
     create: {
-      email: process.env.ADMIN_EMAIL || 'admin@casadaserra.pt',
+      email: process.env.ADMIN_EMAIL,
       password: hashedPassword,
       name: process.env.ADMIN_NAME || 'Administrador',
     },
@@ -65,8 +68,7 @@ async function main() {
 
   console.log('\n✅ Base de dados populada com sucesso!');
   console.log(`\n🔑 Login admin:`);
-  console.log(`   Email: ${process.env.ADMIN_EMAIL || 'admin@casadaserra.pt'}`);
-  console.log(`   Password: ${process.env.ADMIN_PASSWORD || 'admin1234'}`);
+  console.log(`   Email: ${process.env.ADMIN_EMAIL}`);
 }
 
 main()

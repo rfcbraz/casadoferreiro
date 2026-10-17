@@ -174,8 +174,8 @@ router.post('/:id/cancel-checkout', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// GET /api/reservations/:id — consultar reserva pelo ID (público)
-router.get('/:id', async (req, res, next) => {
+// GET /api/reservations/:id — consultar reserva pelo ID (admin)
+router.get('/:id', requireAuth, async (req, res, next) => {
   try {
     const reservation = await prisma.reservation.findUnique({
       where: { id: req.params.id },
