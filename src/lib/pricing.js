@@ -68,10 +68,14 @@ function nightlyRate(room, rules, date) {
 }
 
 function normalizeParty(party = {}) {
-  return Object.fromEntries(AGE_GROUPS.map(group => {
+  const normalized = Object.fromEntries(AGE_GROUPS.map(group => {
     const value = Number(party[group] ?? 0);
     return [group, Number.isInteger(value) && value >= 0 ? value : NaN];
   }));
+  // Berços pedidos (0 até ao número de bebés); pedidos antigos sem este campo pediam um por bebé
+  const cribs = Number(party.cribs ?? normalized.infants);
+  normalized.cribs = Number.isInteger(cribs) && cribs >= 0 ? cribs : NaN;
+  return normalized;
 }
 
 function countedGuests(party) {
@@ -85,6 +89,7 @@ function getBaseOccupancy(room) {
 function validateParty(room, party) {
   if (AGE_GROUPS.some(group => Number.isNaN(party[group]))) return 'Número de hóspedes inválido.';
   if (party.adults < 1) return 'A reserva tem de incluir pelo menos um adulto.';
+  if (Number.isNaN(party.cribs) || party.cribs > party.infants) return 'O número de berços não pode ser superior ao número de bebés.';
   if (countedGuests(party) > room.capacity) return `Esta unidade permite até ${room.capacity} hóspedes (bebés até 2 anos não contam).`;
   return null;
 }
@@ -139,7 +144,7 @@ function calculateQuote(room, rules, checkIn, checkOut, party, promotions = []) 
     let guestAdjustment = 0;
     if (difference > 0) guestAdjustment = difference * extraFee;
     if (difference < 0) guestAdjustment = -rate.price * Math.min(1, (-difference * discountPct) / 100);
-    const crib = party.infants * cribFee;
+    const crib = (party.cribs ?? party.infants) * cribFee;
     return {
       date,
       ...rate,
@@ -161,6 +166,7 @@ function calculateQuote(room, rules, checkIn, checkOut, party, promotions = []) 
     accommodation: sum('price'),
     guestAdjustment: sum('guestAdjustment'),
     crib: sum('crib'),
+    cribs: party.cribs ?? party.infants,
     total: sum('total'),
   };
 }

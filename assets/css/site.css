@@ -223,6 +223,11 @@ html.intro-pending .hero h1,html.intro-pending .nav-logo{visibility:hidden}
 .summary-promo.applied{color:#15803d;background:rgba(21,128,61,.08);border-left-color:#15803d;font-weight:500}
 .age-groups{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem}
 .age-group{display:flex;flex-direction:column;gap:.35rem;font-size:.8rem;color:var(--dark);text-transform:none;letter-spacing:0;font-weight:500}
+.crib-field{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,3fr);gap:.5rem 1rem;align-items:end;margin-top:.75rem}
+.crib-field[hidden]{display:none}
+.crib-field .form-hint{align-self:center}
+.crib-field .form-hint.warning{color:#9a5b13}
+@media (max-width:540px){.crib-field{grid-template-columns:1fr}}
 .age-group small{display:block;font-size:.68rem;color:var(--muted);font-weight:400}
 @media (max-width:540px){.age-groups{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .btn-confirm{width:100%;background:var(--accent);color:#fff;border:none;padding:1rem;font-family:'Jost',sans-serif;font-size:.85rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;border-radius:2px;transition:background .2s;margin-top:.5rem}

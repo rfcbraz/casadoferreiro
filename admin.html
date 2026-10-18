@@ -188,6 +188,33 @@
           </div>
         </div>
       </div>
+
+      <!-- Berços: partilhados pelas duas casas -->
+      <div class="price-admin-card crib-admin">
+        <h4>Berços</h4>
+        <p class="price-admin-help" style="margin:0 0 1rem">Os berços são partilhados pelas duas casas e contados noite a noite. Ocupam berços as reservas aprovadas e pagas e os registos abaixo. No formulário do site, o hóspede só pode pedir os berços que estiverem livres em todas as noites da estadia.</p>
+        <div class="crib-admin-grid">
+          <div>
+            <div class="price-rule-form crib-total-form">
+              <div class="form-field"><label for="crib-total">Número total de berços</label><input type="number" id="crib-total" min="0" max="20" step="1"></div>
+              <button class="price-admin-btn" type="button" onclick="saveCribTotal()">Guardar</button>
+            </div>
+            <h5>Registar berços em uso <span>(ex.: reserva do Booking/Airbnb com bebé)</span></h5>
+            <div class="price-rule-form crib-hold-form">
+              <div class="form-field"><label for="crib-hold-start">Entrada</label><input type="date" id="crib-hold-start"></div>
+              <div class="form-field"><label for="crib-hold-end">Saída</label><input type="date" id="crib-hold-end"></div>
+              <div class="form-field"><label for="crib-hold-count">Berços</label><input type="number" id="crib-hold-count" min="1" step="1" value="1"></div>
+              <div class="form-field"><label for="crib-hold-note">Nota</label><input type="text" id="crib-hold-note" maxlength="200" placeholder="Ex.: Booking — família Smith, T3"></div>
+              <button class="price-admin-btn" type="button" onclick="addCribHold()">+ Registar</button>
+            </div>
+            <div id="crib-holds-list" class="price-rules-list"></div>
+          </div>
+          <div>
+            <h5>Berços ocupados nos próximos 6 meses</h5>
+            <div id="crib-usage" class="crib-usage"></div>
+          </div>
+        </div>
+      </div>
     </div>
     <!-- TAB PREÇOS -->
     <div id="admin-tab-prices" style="display:none">

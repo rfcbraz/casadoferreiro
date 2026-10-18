@@ -35,6 +35,7 @@ const sample = {
   teens: 1,
   children: 1,
   infants: 1,
+  cribs: 1,
   totalPrice: 1031.4,
   contactName: 'Maria Silva',
   contactPhone: '+351912345678',

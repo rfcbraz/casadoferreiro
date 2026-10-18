@@ -9,6 +9,7 @@ const { loadPricing } = require('../lib/priceRules');
 const { blockedConflictWhere } = require('../lib/blockedDates');
 const { verifyTurnstile, TURNSTILE_ERROR } = require('../lib/turnstile');
 const { signCheckoutCancel, isValidCheckoutCancelSignature } = require('../lib/checkoutSignature');
+const { checkCribs, cribsError } = require('../lib/cribs');
 
 const MAX_PENDING_REQUESTS_PER_EMAIL = 3; // pedidos pendentes por email em 24 horas
 // Validade do link de pagamento: o Stripe aceita no máximo 24 h; 5 min de margem para diferenças de relógio
@@ -122,6 +123,15 @@ router.post('/', async (req, res, next) => {
         throw error;
       }
 
+      if (party.cribs > 0) {
+        const { available } = await checkCribs(transaction, ciDate, coDate);
+        if (party.cribs > available) {
+          const error = new Error(cribsError(available));
+          error.status = 409;
+          throw error;
+        }
+      }
+
       // Um pedido novo não altera os dados guardados de um hóspede existente:
       // o nome e o telefone deste pedido ficam na própria reserva
       const guest = await transaction.guest.upsert({
@@ -140,6 +150,7 @@ router.post('/', async (req, res, next) => {
           teens: party.teens,
           children: party.children,
           infants: party.infants,
+          cribs: party.cribs,
           priceBreakdown: quote,
           totalPrice,
           breakfast: false,
@@ -246,12 +257,23 @@ router.get('/', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+function assertCribsForApproval(reservation, { available }) {
+  if (reservation.cribs <= available) return;
+  const free = available === 0 ? 'já não há berços livres' : `só ${available === 1 ? 'resta 1 livre' : `restam ${available} livres`}`;
+  const error = new Error(`Não é possível aprovar: o pedido inclui ${reservation.cribs} berço(s) e ${free} nestas datas. Contacte o hóspede antes de aprovar.`);
+  error.status = 409;
+  throw error;
+}
+
 async function approveReservationForPayment(reservation) {
   if (!process.env.FRONTEND_URL) {
     const error = new Error('FRONTEND_URL não está configurado no servidor.');
     error.status = 503;
     throw error;
   }
+
+  // Berços: confirmar antes de criar o pagamento (volta a ser confirmado dentro da transação)
+  if (reservation.cribs > 0) assertCribsForApproval(reservation, await checkCribs(prisma, reservation.checkIn, reservation.checkOut, { excludeReservationId: reservation.id }));
 
   const stripe = getStripeClient();
   const paymentExpiresAt = new Date(Date.now() + PAYMENT_LINK_MS);
@@ -329,6 +351,10 @@ async function approveReservationForPayment(reservation) {
         const error = new Error('A unidade foi bloqueada para parte destas datas.');
         error.status = 409;
         throw error;
+      }
+
+      if (current.cribs > 0) {
+        assertCribsForApproval(current, await checkCribs(transaction, reservation.checkIn, reservation.checkOut, { excludeReservationId: reservation.id }));
       }
 
       const pendingConflicts = await transaction.reservation.findMany({

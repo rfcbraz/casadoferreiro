@@ -7,6 +7,7 @@ const { normalizeParty, calculateQuote } = require('../lib/pricing');
 const { loadPricing } = require('../lib/priceRules');
 const { blockedConflictWhere } = require('../lib/blockedDates');
 const { publicRoom } = require('../lib/publicRoom');
+const { checkCribs } = require('../lib/cribs');
 const router = express.Router();
 
 // GET /api/availability?checkIn=YYYY-MM-DD&checkOut=YYYY-MM-DD
@@ -77,6 +78,18 @@ router.get('/', async (req, res, next) => {
       minimumStayNights: MINIMUM_STAY_NIGHTS,
       availableRooms,
     });
+  } catch (err) { next(err); }
+});
+
+// GET /api/availability/cribs?checkIn=YYYY-MM-DD&checkOut=YYYY-MM-DD — berços livres em todas as noites
+// (os berços são partilhados pelas duas casas)
+router.get('/cribs', async (req, res, next) => {
+  try {
+    const { checkIn, checkOut } = req.query;
+    const datesError = stayDatesError(checkIn, checkOut);
+    if (datesError) return res.status(400).json({ error: datesError });
+    const { total, available } = await checkCribs(prisma, checkIn, checkOut);
+    res.json({ total, available });
   } catch (err) { next(err); }
 });
 

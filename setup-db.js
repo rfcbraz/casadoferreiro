@@ -204,6 +204,29 @@ async function main() {
        OR (UPPER("type") = 'T3' AND "capacity" IN (6, 9));
   `);
 
+  // Berços: número pedido em cada reserva (reservas antigas pagavam um por bebé),
+  // total partilhado pelas casas (Setting) e berços em uso registados à mão (CribHold)
+  await prisma.$executeRawUnsafe(`ALTER TABLE "Reservation" ADD COLUMN IF NOT EXISTS "cribs" INTEGER;`);
+  await prisma.$executeRawUnsafe(`UPDATE "Reservation" SET "cribs" = COALESCE("infants", 0) WHERE "cribs" IS NULL;`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "Reservation" ALTER COLUMN "cribs" SET DEFAULT 0, ALTER COLUMN "cribs" SET NOT NULL;`);
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "Setting" (
+      "key" TEXT NOT NULL PRIMARY KEY,
+      "value" TEXT NOT NULL,
+      "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "CribHold" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "startDate" TIMESTAMP NOT NULL,
+      "endDate" TIMESTAMP NOT NULL,
+      "cribs" INTEGER NOT NULL,
+      "note" TEXT NOT NULL DEFAULT '',
+      "createdAt" TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+  `);
+
   console.log('✅ Tabelas criadas.');
 
   // Seed de dados

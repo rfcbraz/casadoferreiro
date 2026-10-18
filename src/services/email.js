@@ -184,6 +184,7 @@ async function sendReservationConfirmation(reservation) {
         ${stayRows(reservation, locale)}
         ${boxRow(t.nights, reservation.nights)}
         ${boxRow(t.guests, partyLabel(reservation, locale))}
+        ${reservation.cribs > 0 ? boxRow(t.cribs, reservation.cribs) : ''}
         ${priceRows(reservation, locale)}
         ${boxRow(t.total, euros(reservation.totalPrice))}
       </div>
@@ -309,6 +310,7 @@ async function sendAdminNotification(reservation) {
         <div class="box-row"><span class="box-label">Quarto</span><span class="box-value">${room.name}</span></div>
         ${stayRows(reservation)}
         <div class="box-row"><span class="box-label">Hóspedes</span><span class="box-value">${partyLabel(reservation)}</span></div>
+        ${reservation.infants > 0 ? `<div class="box-row"><span class="box-label">Berços</span><span class="box-value">${reservation.cribs > 0 ? reservation.cribs : '0 (traz berço próprio)'}</span></div>` : ''}
         ${priceRows(reservation)}
         <div class="box-row"><span class="box-label">Total</span><span class="box-value">€${reservation.totalPrice.toFixed(2)}</span></div>
         ${notes ? `<div class="box-row"><span class="box-label">Observações</span><span class="box-value">${escapeHtml(notes).replace(/\n/g, '<br>')}</span></div>` : ''}

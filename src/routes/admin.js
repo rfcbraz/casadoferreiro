@@ -6,6 +6,7 @@ const prisma = require('../lib/prisma');
 const { requireAuth } = require('../middleware/auth');
 const { getPortugalToday } = require('../lib/reservationRules');
 const { STAY_STATUSES, EXTERNAL_SOURCES, monthRange, stayNights, monthRevenue, monthOccupancy } = require('../lib/stats');
+const { CRIBS_TOTAL_KEY, getCribsTotal, loadCribRanges, cribsUsedByNight, eachNight, checkCribs, cribsError } = require('../lib/cribs');
 const router = express.Router();
 
 // POST /api/admin/login
@@ -115,6 +116,81 @@ router.get('/stats', requireAuth, async (req, res, next) => {
       upcomingCheckIns,
     });
   } catch (err) { next(err); }
+});
+
+// ── Berços ────────────────────────────────────────────────
+const CRIB_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const CRIB_USAGE_DAYS = 180;
+
+// GET /api/admin/cribs — total, registos manuais e noites com berços em uso (próximos 6 meses)
+router.get('/cribs', requireAuth, async (req, res, next) => {
+  try {
+    const today = getPortugalToday();
+    const until = new Date(`${today}T00:00:00Z`);
+    until.setUTCDate(until.getUTCDate() + CRIB_USAGE_DAYS);
+    const [total, holds, ranges] = await Promise.all([
+      getCribsTotal(prisma),
+      prisma.cribHold.findMany({ where: { endDate: { gt: new Date(`${today}T00:00:00Z`) } }, orderBy: { startDate: 'asc' } }),
+      loadCribRanges(prisma, today, until),
+    ]);
+    const used = cribsUsedByNight(eachNight(today, until), ranges);
+    res.json({
+      total,
+      holds: holds.map(hold => ({ ...hold, startDate: hold.startDate.toISOString().slice(0, 10), endDate: hold.endDate.toISOString().slice(0, 10) })),
+      usage: [...used].filter(([, count]) => count > 0).map(([date, count]) => ({ date, used: count })),
+    });
+  } catch (err) { next(err); }
+});
+
+// PATCH /api/admin/cribs — alterar o número total de berços
+router.patch('/cribs', requireAuth, async (req, res, next) => {
+  try {
+    const total = Number(req.body?.total);
+    if (!Number.isInteger(total) || total < 0 || total > 20) {
+      return res.status(400).json({ error: 'Indique um número de berços entre 0 e 20.' });
+    }
+    await prisma.setting.upsert({
+      where: { key: CRIBS_TOTAL_KEY },
+      update: { value: String(total) },
+      create: { key: CRIBS_TOTAL_KEY, value: String(total) },
+    });
+    res.json({ total });
+  } catch (err) { next(err); }
+});
+
+// POST /api/admin/cribs/holds — registar berços em uso (ex.: reserva do Booking/Airbnb com bebé)
+router.post('/cribs/holds', requireAuth, async (req, res, next) => {
+  try {
+    const { startDate, endDate, note } = req.body || {};
+    const cribs = Number(req.body?.cribs);
+    if (!CRIB_DATE.test(startDate || '') || !CRIB_DATE.test(endDate || '') || startDate >= endDate) {
+      return res.status(400).json({ error: 'Datas inválidas: indique a entrada e a saída (a saída é depois da entrada).' });
+    }
+    if (endDate <= getPortugalToday()) return res.status(400).json({ error: 'Essas datas já passaram.' });
+    if (!Number.isInteger(cribs) || cribs < 1) return res.status(400).json({ error: 'Indique pelo menos 1 berço.' });
+    const { available } = await checkCribs(prisma, startDate, endDate);
+    if (cribs > available) return res.status(409).json({ error: cribsError(available) });
+    const hold = await prisma.cribHold.create({
+      data: {
+        startDate: new Date(`${startDate}T00:00:00Z`),
+        endDate: new Date(`${endDate}T00:00:00Z`),
+        cribs,
+        note: String(note || '').trim().slice(0, 200),
+      },
+    });
+    res.status(201).json(hold);
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/admin/cribs/holds/:id — apagar um registo manual
+router.delete('/cribs/holds/:id', requireAuth, async (req, res, next) => {
+  try {
+    await prisma.cribHold.delete({ where: { id: req.params.id } });
+    res.json({ message: 'Registo apagado.' });
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Registo não encontrado.' });
+    next(err);
+  }
 });
 
 // PATCH /api/admin/password — alterar password

@@ -94,3 +94,15 @@ test('promotion only discounts nights inside its dates', () => {
   assert.equal(quote.promotion.discount, -100);
   assert.equal(quote.total, 200);
 });
+
+test('the crib fee is charged per crib requested, not per baby', () => {
+  const oneCrib = calculateQuote(t2, [], '2026-11-02', '2026-11-04', party({ adults: 2, infants: 2, cribs: 1 }));
+  assert.equal(oneCrib.crib, 10);
+  assert.equal(oneCrib.cribs, 1);
+  const noCrib = calculateQuote(t2, [], '2026-11-02', '2026-11-04', party({ adults: 2, infants: 1, cribs: 0 }));
+  assert.equal(noCrib.crib, 0);
+  // Pedidos sem o campo "cribs" (antigos): um berço por bebé
+  assert.equal(calculateQuote(t2, [], '2026-11-02', '2026-11-04', party({ adults: 2, infants: 1 })).crib, 10);
+  assert.match(validateParty(t2, party({ adults: 2, infants: 1, cribs: 2 })), /berços/);
+  assert.match(validateParty(t2, party({ adults: 2, infants: 1, cribs: -1 })), /berços/);
+});

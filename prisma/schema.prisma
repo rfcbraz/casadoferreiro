@@ -36,6 +36,23 @@ model Room {
   promotions   Promotion[]
 }
 
+// Definições gerais do painel (ex.: cribsTotal = número de berços partilhados pelas casas)
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+// Berços em uso registados à mão (ex.: reservas do Booking/Airbnb com bebé), de startDate até endDate (dia de saída)
+model CribHold {
+  id        String   @id @default(uuid())
+  startDate DateTime // primeira noite
+  endDate   DateTime // dia de saída (não conta)
+  cribs     Int
+  note      String   @default("")
+  createdAt DateTime @default(now())
+}
+
 // Promoções: desconto em % para estadias com um mínimo de noites, num período
 model Promotion {
   id          String   @id @default(uuid())
@@ -91,6 +108,7 @@ model Reservation {
   teens           Int               @default(0) // 7–17 anos
   children        Int               @default(0) // 3–6 anos
   infants         Int               @default(0) // 0–2 anos
+  cribs           Int               @default(0) // berços pedidos (0 até ao número de bebés)
   priceBreakdown  Json?
   totalPrice      Float
   status          ReservationStatus @default(PENDING)

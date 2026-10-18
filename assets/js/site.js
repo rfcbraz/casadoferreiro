@@ -848,8 +848,75 @@ const AGE_GROUP_FIELDS = { adults: 'f-adults', teens: 'f-teens', children: 'f-ch
 const MAX_INFANTS = 3;
 
 function getBookingParty() {
-  return Object.fromEntries(Object.entries(AGE_GROUP_FIELDS)
+  const party = Object.fromEntries(Object.entries(AGE_GROUP_FIELDS)
     .map(([group, id]) => [group, parseInt(document.getElementById(id).value, 10) || 0]));
+  party.cribs = party.infants > 0 ? Math.min(party.infants, parseInt(document.getElementById('f-cribs').value, 10) || 0) : 0;
+  return party;
+}
+
+// ── Berços (partilhados pelas duas casas, contados noite a noite pelo servidor) ──
+let cribAvailability = { key: '', available: null, loading: false };
+let cribChoiceTouched = false; // o hóspede escolheu o número; senão, propõe um berço por bebé
+
+function cribDatesKey() {
+  const checkIn = document.getElementById('f-checkin').value;
+  const checkOut = document.getElementById('f-checkout').value;
+  return checkIn && checkOut && checkIn < checkOut ? `${checkIn}|${checkOut}` : '';
+}
+
+// Pede ao servidor os berços livres nas datas escolhidas (só quando as datas mudam)
+async function refreshCribAvailability() {
+  const key = cribDatesKey();
+  const infants = parseInt(document.getElementById('f-infants').value, 10) || 0;
+  if (!key || infants === 0 || key === cribAvailability.key) { renderCribOptions(); return; }
+  cribAvailability = { key, available: null, loading: true };
+  renderCribOptions();
+  const [checkIn, checkOut] = key.split('|');
+  try {
+    const res = await fetch(`${API}/availability/cribs?checkIn=${checkIn}&checkOut=${checkOut}`);
+    const data = await res.json();
+    if (cribAvailability.key !== key) return;
+    cribAvailability = { key, available: res.ok ? data.available : null, loading: false };
+  } catch (err) {
+    if (cribAvailability.key !== key) return;
+    cribAvailability = { key, available: null, loading: false };
+  }
+  const before = document.getElementById('f-cribs').value;
+  renderCribOptions();
+  if (document.getElementById('f-cribs').value !== before) updateSummary();
+}
+
+function renderCribOptions() {
+  const field = document.getElementById('crib-field');
+  const select = document.getElementById('f-cribs');
+  const hint = document.getElementById('crib-hint');
+  const infants = parseInt(document.getElementById('f-infants').value, 10) || 0;
+  field.hidden = infants === 0;
+  if (infants === 0) { select.innerHTML = '<option value="0">0</option>'; cribChoiceTouched = false; return; }
+
+  const known = cribAvailability.key === cribDatesKey() && cribAvailability.available !== null;
+  const max = known ? Math.min(infants, cribAvailability.available) : infants;
+  const current = parseInt(select.value, 10);
+  const value = cribChoiceTouched && Number.isInteger(current) ? Math.min(current, max) : max;
+  select.innerHTML = Array.from({ length: max + 1 }, (_, count) => `<option value="${count}">${count}</option>`).join('');
+  select.value = String(value);
+
+  hint.classList.remove('warning');
+  if (!cribDatesKey()) {
+    hint.textContent = translateText('Escolha as datas para ver os berços disponíveis.');
+  } else if (!known) {
+    hint.textContent = cribAvailability.loading ? translateText('A verificar berços disponíveis...') : translateText('Berço com custo por noite.');
+  } else if (cribAvailability.available === 0) {
+    hint.classList.add('warning');
+    hint.textContent = translateText('Para estas datas já não há berços disponíveis. Pode reservar na mesma se trouxer um berço de viagem.');
+  } else if (cribAvailability.available < infants) {
+    hint.classList.add('warning');
+    hint.textContent = cribAvailability.available === 1
+      ? translateText('Para estas datas só resta 1 berço disponível.')
+      : translateTemplate('Para estas datas só restam {{count}} berços disponíveis.', { count: cribAvailability.available });
+  } else {
+    hint.textContent = translateText('Berço com custo por noite.');
+  }
 }
 
 function countPartyGuests(party) {
@@ -1394,6 +1461,7 @@ function closeBooking() {
 
 function updateSummary() {
   updateArrivalTimeOptions();
+  refreshCribAvailability();
   const sel = document.getElementById('f-room');
   const opt = sel.options[sel.selectedIndex];
   const roomName = opt?.dataset?.name || opt?.text || '—';
@@ -1414,6 +1482,7 @@ function updateSummary() {
     [party.teens, 'jovem (7–17 anos)', 'jovens (7–17 anos)'],
     [party.children, 'criança (3–6 anos)', 'crianças (3–6 anos)'],
     [party.infants, 'bebé (0–2 anos)', 'bebés (0–2 anos)'],
+    [party.cribs, 'berço', 'berços'],
   ].filter(([count]) => count > 0).map(([count, one, many]) => `${count} ${translateText(count === 1 ? one : many)}`);
   document.getElementById('s-guests').textContent = partyLines.length ? partyLines.join('\n') : '—';
   updateQuote(sel.value, nights);
@@ -1506,6 +1575,10 @@ Object.values(AGE_GROUP_FIELDS).forEach(id => document.getElementById(id).addEve
   updateGuestLimitHint();
   updateSummary();
 }));
+document.getElementById('f-cribs').addEventListener('change', () => {
+  cribChoiceTouched = true;
+  updateSummary();
+});
 document.getElementById('bar-room').addEventListener('change', () => syncGuestOptions('bar-room', 'bar-guests'));
 document.getElementById('f-room').addEventListener('change', function() {
   syncAgeGroupOptions();

@@ -71,6 +71,7 @@ function adminTab(tab, el) {
     adminImportedDates = new Map();
     renderAdminCal();
     loadAdminRooms().then(() => { if (document.getElementById('avail-room-select')?.value) loadRoomAvailability(); });
+    loadCribs();
   }
 }
 
@@ -440,7 +441,95 @@ function formatReservationParty(r) {
   const groups = [[r.adults, 'adulto(s)'], [r.teens, '7–17 anos'], [r.children, '3–6 anos'], [r.infants, 'bebé(s) 0–2']]
     .filter(([count]) => count > 0)
     .map(([count, label]) => `${count} ${label}`);
+  if (r.infants > 0) groups.push(r.cribs > 0 ? `${r.cribs} berço(s)` : 'sem berço (traz o seu)');
   return groups.length ? groups.join(' · ') : `${r.guests}`;
+}
+
+// ── Berços ────────────────────────────────────────────────
+// Agrupa noites seguidas com o mesmo número de berços: "10 nov → 14 nov · 2 berços"
+function groupCribUsage(usage) {
+  const groups = [];
+  usage.forEach(({ date, used }) => {
+    const last = groups[groups.length - 1];
+    if (last && last.used === used && shiftDateString(last.end, 1) === date) last.end = date;
+    else groups.push({ start: date, end: date, used });
+  });
+  return groups;
+}
+
+async function loadCribs() {
+  const list = document.getElementById('crib-holds-list');
+  const usageEl = document.getElementById('crib-usage');
+  if (!list || !adminToken) return;
+  try {
+    const res = await fetch(`${API}/admin/cribs`, { headers: { Authorization: `Bearer ${adminToken}` } });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    document.getElementById('crib-total').value = data.total;
+    list.innerHTML = data.holds.length ? data.holds.map(hold => `
+      <div class="price-rule-row crib-hold-row">
+        <strong>${hold.cribs} berço(s)</strong>
+        <span>${formatAdminShortDate(hold.startDate)} → ${formatAdminShortDate(hold.endDate)}</span>
+        <span>${escapeAdminHtml(hold.note || '—')}</span>
+        <button class="admin-action" type="button" onclick="deleteCribHold('${hold.id}')">🗑 Apagar</button>
+      </div>`).join('')
+      : '<div class="price-rule-empty">Sem registos manuais.</div>';
+    const groups = groupCribUsage(data.usage);
+    usageEl.innerHTML = groups.length ? groups.map(group => `
+      <div class="crib-usage-row${group.used >= data.total ? ' full' : ''}">
+        <span>${formatAdminShortDate(group.start)}${group.end !== group.start ? ` → ${formatAdminShortDate(group.end)}` : ''}</span>
+        <strong>${group.used} de ${data.total}${group.used >= data.total ? ' · esgotados' : ''}</strong>
+      </div>`).join('')
+      : '<div class="price-rule-empty">Nenhum berço ocupado nos próximos 6 meses.</div>';
+  } catch (err) {
+    console.error('Erro berços:', err);
+    list.innerHTML = '<div class="price-rule-empty" style="color:#dc2626">Não foi possível carregar os berços.</div>';
+  }
+}
+
+async function saveCribTotal() {
+  try {
+    const res = await fetch(`${API}/admin/cribs`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ total: Number(document.getElementById('crib-total').value) })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { showToast(data.error || 'Erro ao guardar.'); return; }
+    showToast(`✓ Total de berços: ${data.total}.`);
+    loadCribs();
+  } catch (err) { showToast('Erro de ligação.'); }
+}
+
+async function addCribHold() {
+  const body = {
+    startDate: document.getElementById('crib-hold-start').value,
+    endDate: document.getElementById('crib-hold-end').value,
+    cribs: Number(document.getElementById('crib-hold-count').value),
+    note: document.getElementById('crib-hold-note').value,
+  };
+  try {
+    const res = await fetch(`${API}/admin/cribs/holds`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { showToast(data.error || 'Erro ao registar.'); return; }
+    ['crib-hold-start', 'crib-hold-end', 'crib-hold-note'].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('crib-hold-count').value = 1;
+    showToast('✓ Berços registados.');
+    loadCribs();
+  } catch (err) { showToast('Erro de ligação.'); }
+}
+
+async function deleteCribHold(id) {
+  if (!confirm('Apagar este registo de berços?')) return;
+  try {
+    const res = await fetch(`${API}/admin/cribs/holds/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${adminToken}` } });
+    if (!res.ok) { showToast('Erro ao apagar.'); return; }
+    loadCribs();
+  } catch (err) { showToast('Erro de ligação.'); }
 }
 
 // ── Preços ────────────────────────────────────────────────
