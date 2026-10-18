@@ -144,7 +144,8 @@ function baseTemplate(content, locale = 'pt') {
   <!DOCTYPE html>
   <html lang="${normalizeLocale(locale)}">
   <head><meta charset="UTF-8"><style>
-    body { font-family: Georgia, serif; background: #f5f0e8; margin: 0; padding: 0; }
+    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-variant-numeric: lining-nums; background: #f5f0e8; margin: 0; padding: 0; }
+    /* Texto sem serifa: a Georgia desenha o 1 parecido com um I; o título continua em Georgia (não tem números) */
     .wrap { max-width: 580px; margin: 40px auto; background: #fdfaf5; border: 1px solid #e8dcc8; }
     .header { background: #2a2118; padding: 32px 40px; }
     .header h1 { font-family: Georgia, serif; color: #e8b87a; margin: 0; font-size: 24px; font-weight: normal; letter-spacing: 2px; }

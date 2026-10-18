@@ -5,7 +5,7 @@
   --accent:#c9893a;--accent2:#e8b87a;--text:#2a2118;--muted:#7a6d5a;--white:#fdfaf5;
   --radius:4px;
 }
-body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;overflow-x:hidden}
+body{font-family:'Jost',sans-serif;font-variant-numeric:lining-nums;background:var(--cream);color:var(--text);min-height:100vh;overflow-x:hidden}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--warm)}::-webkit-scrollbar-thumb{background:var(--stone)}
 .form-field{display:flex;flex-direction:column;gap:.4rem}
 .form-field.full{grid-column:1/-1}
