@@ -174,7 +174,7 @@ router.post('/', async (req, res, next) => {
       message: 'Pedido recebido. O pagamento será solicitado se a reserva for aprovada.',
       reservation: {
         id: reservation.id,
-        ref: reservation.id.slice(0, 8).toUpperCase(),
+        ref: reservationRef(reservation),
         room: reservation.room.name,
         checkIn: reservation.checkIn,
         checkOut: reservation.checkOut,
@@ -257,6 +257,11 @@ router.get('/', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Referência curta mostrada nos emails, no painel e no Stripe (primeiros 8 caracteres do identificador)
+function reservationRef(reservation) {
+  return reservation.id.slice(0, 8).toUpperCase();
+}
+
 function assertCribsForApproval(reservation, { available }) {
   if (reservation.cribs <= available) return;
   const free = available === 0 ? 'já não há berços livres' : `só ${available === 1 ? 'resta 1 livre' : `restam ${available} livres`}`;
@@ -304,15 +309,19 @@ async function approveReservationForPayment(reservation) {
       price_data: {
         currency: 'eur',
         product_data: {
-          name: text.stripeProduct(reservation.room.name, reservation.nights),
+          name: text.stripeProduct(reservationRef(reservation), reservation.room.name, reservation.nights),
           description: text.stripeDates(reservation.checkIn.toISOString().slice(0, 10), reservation.checkOut.toISOString().slice(0, 10)),
         },
         unit_amount: Math.round(reservation.totalPrice * 100),
       },
       quantity: 1,
     }],
-    metadata: { reservationId: reservation.id },
-    payment_intent_data: { metadata: { reservationId: reservation.id } },
+    // A referência curta (#ABCD1234) aparece na lista de pagamentos do Stripe e liga ao painel e aos emails
+    metadata: { reservationId: reservation.id, reference: reservationRef(reservation) },
+    payment_intent_data: {
+      description: `Reserva #${reservationRef(reservation)} · ${reservation.room.name} · ${reservation.checkIn.toISOString().slice(0, 10)} → ${reservation.checkOut.toISOString().slice(0, 10)}`,
+      metadata: { reservationId: reservation.id, reference: reservationRef(reservation) },
+    },
     success_url: `${frontendUrl}/?payment=success&reservation=${reservation.id}`,
     cancel_url: `${frontendUrl}/?payment=cancelled&reservation=${reservation.id}&sig=${signCheckoutCancel(reservation.id)}`,
   });

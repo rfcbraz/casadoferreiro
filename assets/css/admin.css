@@ -38,6 +38,7 @@ a.admin-close{display:block;text-align:center;text-decoration:none}
 .admin-table-row:last-child{border-bottom:none}
 .admin-guest-name{font-weight:500;font-size:.88rem}
 .admin-guest-email{font-size:.75rem;color:var(--muted)}
+.admin-ref{font-size:.7rem;color:var(--earth);letter-spacing:.06em;margin-top:.15rem;font-variant-numeric:tabular-nums}
 .admin-room-badge{background:var(--warm);color:var(--earth);font-size:.7rem;padding:.2rem .6rem;border-radius:2px;font-weight:500;white-space:nowrap}
 .admin-status{display:inline-flex;align-items:center;gap:.4rem;font-size:.75rem;padding:.25rem .7rem;border-radius:2px;font-weight:500}
 .admin-status.confirmed{background:#dcfce7;color:#166534}

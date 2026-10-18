@@ -58,7 +58,7 @@ const TEXT = {
       CANCELLED_REFUND: ['Cancelada', 'A sua reserva foi cancelada e foi solicitado o reembolso integral do pagamento. O prazo para o valor ficar disponível depende do banco emissor.'],
       PAID: ['Paga ✓', 'O pagamento foi processado com sucesso. Tudo pronto!'],
     },
-    stripeProduct: (room, nights) => `Reserva ${room} - ${nights} noites`,
+    stripeProduct: (ref, room, nights) => `Reserva #${ref} · ${room} · ${nights} noites`,
     stripeDates: (from, to) => `${from} a ${to}`,
   },
   en: {
@@ -109,7 +109,7 @@ const TEXT = {
       CANCELLED_REFUND: ['Cancelled', 'Your booking has been cancelled and a full refund has been requested. The time it takes to reach your account depends on your bank.'],
       PAID: ['Paid ✓', 'Your payment was successful. Everything is ready!'],
     },
-    stripeProduct: (room, nights) => `Booking ${room} - ${nights} nights`,
+    stripeProduct: (ref, room, nights) => `Booking #${ref} · ${room} · ${nights} nights`,
     stripeDates: (from, to) => `${from} to ${to}`,
   },
   es: {
@@ -160,7 +160,7 @@ const TEXT = {
       CANCELLED_REFUND: ['Cancelada', 'Su reserva ha sido cancelada y se ha solicitado el reembolso íntegro del pago. El plazo para disponer del importe depende de su banco.'],
       PAID: ['Pagada ✓', 'El pago se ha procesado correctamente. ¡Todo listo!'],
     },
-    stripeProduct: (room, nights) => `Reserva ${room} - ${nights} noches`,
+    stripeProduct: (ref, room, nights) => `Reserva #${ref} · ${room} · ${nights} noches`,
     stripeDates: (from, to) => `${from} a ${to}`,
   },
 };

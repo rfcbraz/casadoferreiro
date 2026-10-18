@@ -165,7 +165,7 @@ async function loadAdminStats() {
       } else {
         upcomingList.innerHTML = d.upcomingCheckIns.map(r => `
           <div class="admin-table-row" style="grid-template-columns:2fr 1.5fr 1fr 1fr">
-            <div><div class="admin-guest-name">${escapeAdminHtml(r.contactName || r.guest.name)}</div><div class="admin-guest-email">${escapeAdminHtml(r.guest.email)}</div></div>
+            <div><div class="admin-guest-name">${escapeAdminHtml(r.contactName || r.guest.name)}</div><div class="admin-guest-email">${escapeAdminHtml(r.guest.email)}</div><div class="admin-ref">#${r.id.slice(0, 8).toUpperCase()}</div></div>
             <div><span class="admin-room-badge">${escapeAdminHtml(r.room.name)}</span></div>
             <div style="font-size:.85rem">${new Date(r.checkIn).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})}</div>
             <div style="font-size:.85rem">${new Date(r.checkOut).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})}</div>
@@ -195,7 +195,7 @@ async function loadAdminReservations(statusFilter) {
     const statusClass = { PENDING: 'pending', AWAITING_PAYMENT: 'pending', CONFIRMED: 'confirmed', DECLINED: 'declined', CANCELLED: 'cancelled', PAID: 'confirmed', COMPLETED: 'confirmed' };
     tbody.innerHTML = data.reservations.map(r => `
       <div class="admin-table-row">
-        <div><div class="admin-guest-name">${escapeAdminHtml(r.contactName || r.guest.name)}</div><div class="admin-guest-email">${escapeAdminHtml(r.guest.email)}</div></div>
+        <div><div class="admin-guest-name">${escapeAdminHtml(r.contactName || r.guest.name)}</div><div class="admin-guest-email">${escapeAdminHtml(r.guest.email)}</div><div class="admin-ref">#${r.id.slice(0, 8).toUpperCase()}</div></div>
         <div><span class="admin-room-badge">${r.room.name}</span></div>
         <div style="font-size:.85rem">${new Date(r.checkIn).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})}</div>
         <div style="font-size:.85rem">${new Date(r.checkOut).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})}</div>
