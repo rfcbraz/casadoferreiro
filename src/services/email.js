@@ -65,8 +65,14 @@ function splitSpecialRequests(specialRequests) {
   };
 }
 
-function boxRow(label, value) {
-  return `<div class="box-row"><span class="box-label">${label}</span><span class="box-value">${value}</span></div>`;
+// Caixa de dados em tabela com estilos em cada célula: os programas de email ignoram display:flex
+const FONT = "font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;";
+const BOX_OPEN = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f0e8;border:1px solid #e8dcc8;border-radius:4px;margin:24px 0;border-collapse:separate"><tr><td style="padding:10px 24px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">`;
+const BOX_CLOSE = '</table></td></tr></table>';
+
+function boxRow(label, value, isTotal = false) {
+  const cell = `${FONT}padding:10px 0;vertical-align:top;${isTotal ? 'font-size:16px;font-weight:bold;' : 'font-size:14px;border-bottom:1px solid #e8dcc8;'}`;
+  return `<tr><td style="${cell}color:#8b7355;padding-right:16px">${label}</td><td style="${cell}color:#2a2118;text-align:right">${value}</td></tr>`;
 }
 
 function stayRows(reservation, locale = 'pt') {
@@ -152,11 +158,6 @@ function baseTemplate(content, locale = 'pt') {
     .header p { color: rgba(255,255,255,.5); margin: 4px 0 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; }
     .body { padding: 40px; }
     .body p { color: #5a4a38; line-height: 1.8; font-size: 15px; }
-    .box { background: #f5f0e8; border: 1px solid #e8dcc8; border-radius: 4px; padding: 20px 24px; margin: 24px 0; }
-    .box-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e8dcc8; font-size: 14px; }
-    .box-row:last-child { border-bottom: none; font-weight: bold; font-size: 16px; }
-    .box-label { color: #8b7355; }
-    .box-value { color: #2a2118; }
     .btn { display: inline-block; background: #c9893a; color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 2px; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; margin: 16px 0; }
     .footer { background: #f5f0e8; padding: 20px 40px; border-top: 1px solid #e8dcc8; text-align: center; }
     .footer p { color: #8b7355; font-size: 12px; margin: 4px 0; }
@@ -179,7 +180,7 @@ async function sendReservationConfirmation(reservation) {
     <div class="body">
       <p>${t.dear(escapeHtml(guest.name))}</p>
       <p>${t.requestIntro}</p>
-      <div class="box">
+      ${BOX_OPEN}
         ${boxRow(t.reference, `#${ref}`)}
         ${boxRow(t.unit, escapeHtml(reservation.room.name))}
         ${stayRows(reservation, locale)}
@@ -187,8 +188,8 @@ async function sendReservationConfirmation(reservation) {
         ${boxRow(t.guests, partyLabel(reservation, locale))}
         ${reservation.cribs > 0 ? boxRow(t.cribs, reservation.cribs) : ''}
         ${priceRows(reservation, locale)}
-        ${boxRow(t.total, euros(reservation.totalPrice))}
-      </div>
+        ${boxRow(t.total, euros(reservation.totalPrice), true)}
+      ${BOX_CLOSE}
       ${promotionNote(reservation, locale)}
       ${scheduleNote(locale)}
       <p>${t.requestNotConfirmed}</p>
@@ -220,13 +221,13 @@ async function sendReservationPaymentLink(reservation, checkoutUrl) {
     <div class="body">
       <p>${t.dear(escapeHtml(guest.name))}</p>
       <p>${t.approvedIntro}</p>
-      <div class="box">
+      ${BOX_OPEN}
         ${boxRow(t.reference, `#${ref}`)}
         ${boxRow(t.unit, escapeHtml(reservation.room.name))}
         ${stayRows(reservation, locale)}
         ${priceRows(reservation, locale)}
-        ${boxRow(t.total, euros(reservation.totalPrice))}
-      </div>
+        ${boxRow(t.total, euros(reservation.totalPrice), true)}
+      ${BOX_CLOSE}
       <p><a href="${checkoutUrl}" class="btn">${t.payButton}</a></p>
       ${reservation.paymentExpiresAt ? `<p>${t.linkValidUntil(formatDateTime(reservation.paymentExpiresAt, locale))}</p>` : ''}
       ${promotionNote(reservation, locale)}
@@ -262,13 +263,13 @@ async function sendReservationStatusUpdate(reservation, newStatus) {
     <div class="body">
       <p>${t.dear(escapeHtml(guest.name))}</p>
       <p>${isDeclined ? t.declined.message : message}</p>
-      <div class="box">
+      ${BOX_OPEN}
         ${boxRow(t.reference, `#${ref}`)}
         ${boxRow(t.unit, escapeHtml(reservation.room.name))}
         ${stayRows(reservation, locale)}
         ${priceRows(reservation, locale)}
-        ${boxRow(t.total, euros(reservation.totalPrice))}
-      </div>
+        ${boxRow(t.total, euros(reservation.totalPrice), true)}
+      ${BOX_CLOSE}
       ${['CONFIRMED', 'PAID'].includes(newStatus) ? promotionNote(reservation, locale) + scheduleNote(locale) : ''}
       ${isDeclined ? `<p>${t.declined.invite}</p><p><a href="${siteUrl}" class="btn">${t.declined.button}</a></p>` : ''}
     </div>
@@ -302,20 +303,20 @@ async function sendAdminNotification(reservation) {
       <p>${isPaid
         ? 'O hóspede pagou e a reserva está confirmada. As datas já estão ocupadas no calendário.'
         : 'Foi recebido um novo pedido de reserva que aguarda aprovação.'}</p>
-      <div class="box">
-        <div class="box-row"><span class="box-label">Referência</span><span class="box-value">#${reservation.id.slice(0,8).toUpperCase()}</span></div>
-        <div class="box-row"><span class="box-label">Hóspede</span><span class="box-value">${escapeHtml(guest.name)}</span></div>
-        <div class="box-row"><span class="box-label">Email</span><span class="box-value">${escapeHtml(guest.email)}</span></div>
-        <div class="box-row"><span class="box-label">Telefone</span><span class="box-value">${escapeHtml(guest.phone || '—')}</span></div>
-        <div class="box-row"><span class="box-label">Idioma</span><span class="box-value">${LANGUAGE_NAMES[normalizeLocale(reservation.locale)]}</span></div>
-        <div class="box-row"><span class="box-label">Quarto</span><span class="box-value">${room.name}</span></div>
+      ${BOX_OPEN}
+        ${boxRow('Referência', `#${reservation.id.slice(0,8).toUpperCase()}`)}
+        ${boxRow('Hóspede', `${escapeHtml(guest.name)}`)}
+        ${boxRow('Email', `${escapeHtml(guest.email)}`)}
+        ${boxRow('Telefone', `${escapeHtml(guest.phone || '—')}`)}
+        ${boxRow('Idioma', `${LANGUAGE_NAMES[normalizeLocale(reservation.locale)]}`)}
+        ${boxRow('Quarto', `${room.name}`)}
         ${stayRows(reservation)}
-        <div class="box-row"><span class="box-label">Hóspedes</span><span class="box-value">${partyLabel(reservation)}</span></div>
-        ${reservation.infants > 0 ? `<div class="box-row"><span class="box-label">Berços</span><span class="box-value">${reservation.cribs > 0 ? reservation.cribs : '0 (traz berço próprio)'}</span></div>` : ''}
+        ${boxRow('Hóspedes', `${partyLabel(reservation)}`)}
+        ${reservation.infants > 0 ? `${boxRow('Berços', `${reservation.cribs > 0 ? reservation.cribs : '0 (traz berço próprio)'}`)}` : ''}
         ${priceRows(reservation)}
-        <div class="box-row"><span class="box-label">Total</span><span class="box-value">€${reservation.totalPrice.toFixed(2)}</span></div>
-        ${notes ? `<div class="box-row"><span class="box-label">Observações</span><span class="box-value">${escapeHtml(notes).replace(/\n/g, '<br>')}</span></div>` : ''}
-      </div>
+        ${notes ? `${boxRow('Observações', `${escapeHtml(notes).replace(/\n/g, '<br>')}`)}` : ''}
+        ${boxRow('Total', `€${reservation.totalPrice.toFixed(2)}`, true)}
+      ${BOX_CLOSE}
       <a href="${adminUrl}" class="btn">Ver no Painel</a>
     </div>
     <div class="footer"><p>Casa do Ferreiro · Painel de Gestão</p></div>
@@ -339,11 +340,11 @@ async function sendContactMessage({ name, email, phone, message }) {
     </div>
     <div class="body">
       <p>Foi enviada uma mensagem através do formulário de contacto do site. Pode responder diretamente a este email.</p>
-      <div class="box">
-        <div class="box-row"><span class="box-label">Nome</span><span class="box-value">${escapeHtml(name)}</span></div>
-        <div class="box-row"><span class="box-label">Email</span><span class="box-value">${escapeHtml(email)}</span></div>
-        <div class="box-row"><span class="box-label">Telefone</span><span class="box-value">${escapeHtml(phone || '—')}</span></div>
-      </div>
+      ${BOX_OPEN}
+        ${boxRow('Nome', `${escapeHtml(name)}`)}
+        ${boxRow('Email', `${escapeHtml(email)}`)}
+        ${boxRow('Telefone', `${escapeHtml(phone || '—')}`)}
+      ${BOX_CLOSE}
       <p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>
     </div>
     <div class="footer"><p>Casa do Ferreiro · Formulário de contacto</p></div>
