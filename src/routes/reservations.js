@@ -171,7 +171,7 @@ router.post('/', async (req, res, next) => {
     ]).catch(error => console.error('Erro ao enviar emails de reserva:', error));
 
     res.status(201).json({
-      message: 'Pedido recebido. O pagamento será solicitado se o proprietário aprovar a reserva.',
+      message: 'Pedido recebido. O pagamento será solicitado se a reserva for aprovada.',
       reservation: {
         id: reservation.id,
         ref: reservation.id.slice(0, 8).toUpperCase(),
