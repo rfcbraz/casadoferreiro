@@ -301,7 +301,7 @@ async function approveReservationForPayment(reservation) {
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: 'payment',
     locale, // página de pagamento no idioma do hóspede
-    payment_method_types: ['card'],
+    // Métodos de pagamento escolhidos no painel do Stripe (Settings → Payment methods)
     customer_email: reservation.guest.email,
     client_reference_id: reservation.id,
     expires_at: Math.floor(paymentExpiresAt.getTime() / 1000),

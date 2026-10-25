@@ -18,7 +18,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
     event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     console.error('Webhook error:', err.message);
-    return res.status(400).json({ error: `Webhook error: ${err.message}` });
+    return res.status(400).json({ error: 'Assinatura do webhook inválida.' });
   }
 
   if (event.type === 'payment_intent.succeeded') {
