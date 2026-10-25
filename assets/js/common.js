@@ -2,6 +2,21 @@
 // ── Configuração da API ───────────────────────────────────
 const API = 'https://casadaserra-production.up.railway.app/api';
 
+// Pedidos de leitura com novas tentativas: o servidor pode demorar uns segundos a arrancar
+// (depois de uma atualização ou de estar parado) e responder com erro ou não responder
+const RETRY_DELAYS_MS = [1000, 2500, 5000];
+async function fetchWithRetry(url, options = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await fetch(url, { ...options, signal: AbortSignal.timeout(15000) });
+      if (![502, 503, 504].includes(res.status) || attempt >= RETRY_DELAYS_MS.length) return res;
+    } catch (err) {
+      if (attempt >= RETRY_DELAYS_MS.length) throw err;
+    }
+    await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+  }
+}
+
 // ── Datas em hora de Portugal ─────────────────────────────
 function getPortugalDateString() {
   const parts = new Intl.DateTimeFormat('en-CA', {

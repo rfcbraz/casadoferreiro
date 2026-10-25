@@ -535,7 +535,7 @@ document.addEventListener('pointerup', () => {
 async function fetchRoomOccupancy(roomId) {
   const from = getPortugalDateString();
   const to = shiftDateString(from, CALENDAR_RANGE_DAYS);
-  const res = await fetch(`${API}/availability/room/${roomId}?from=${from}&to=${to}`);
+  const res = await fetchWithRetry(`${API}/availability/room/${roomId}?from=${from}&to=${to}`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error);
   // nights: noites ocupadas ou bloqueadas; closedDays: dias fechados no painel (nem entrada nem saída)
@@ -790,8 +790,10 @@ function bindRoomCardEvents() {
 // ── Carregar quartos da API ───────────────────────────────
 async function loadRooms() {
   try {
-    const res = await fetch(`${API}/rooms`);
-    allRooms = await res.json();
+    const res = await fetchWithRetry(`${API}/rooms`);
+    const rooms = await res.json();
+    if (!res.ok || !Array.isArray(rooms)) throw new Error(rooms?.error || `HTTP ${res.status}`);
+    allRooms = rooms;
     populateRoomSelect();
     renderRoomCards();
     bindRoomCardEvents();
@@ -801,7 +803,7 @@ async function loadRooms() {
     loadPublicCalAvailability(calendarRoomId);
   } catch(err) {
     console.error('Erro ao carregar quartos:', err);
-    showToast('Não foi possível carregar os quartos. Verifique se o servidor está ligado.');
+    showToast(translateText('Não foi possível carregar as casas. Atualize a página dentro de momentos.'));
   }
 }
 
