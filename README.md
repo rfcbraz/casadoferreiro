@@ -93,6 +93,30 @@ Os registos de email (MX, SPF, DKIM da securemail e do Resend, `send`) são inde
 
 ---
 
+## Cópias da base de dados
+
+O workflow [`.github/workflows/db-backup.yml`](.github/workflows/db-backup.yml) faz **todos os dias às 03:30 UTC** uma cópia completa da base de dados (`pg_dump`), **encriptada com password** (AES-256, GnuPG), e guarda-a 90 dias como *artifact* do GitHub Actions. O repositório é público: sem a password as cópias não se abrem.
+
+Configuração (uma vez), em GitHub → **Settings → Secrets and variables → Actions → New repository secret**:
+
+| Segredo | Valor |
+|---|---|
+| `BACKUP_DATABASE_URL` | `DATABASE_PUBLIC_URL` do serviço Postgres no Railway (separador Variables) |
+| `BACKUP_PASSWORD` | Password longa para encriptar as cópias. **Guardar num local seguro: sem ela nenhuma cópia pode ser aberta.** |
+
+- Fazer uma cópia já: separador **Actions → Cópia da base de dados → Run workflow**.
+- Descarregar uma cópia: abrir uma execução concluída e descarregar o *artifact* (`casa-ferreiro-AAAA-MM-DD_HHMM`), que contém o ficheiro `.dump.gpg`.
+- Sempre que a cópia ou a reposição mudam, um autoteste cria uma base temporária, copia, encripta, repõe e compara.
+- O GitHub suspende tarefas agendadas em repositórios sem atividade durante 60 dias; se isso acontecer, reativar em **Actions**.
+
+**Repor uma cópia** (substitui os dados da base de destino; precisa de Docker e gpg, por exemplo no Git Bash):
+
+```bash
+DATABASE_URL="postgresql://…" BACKUP_PASSWORD="…" bash scripts/db-restore.sh casa-ferreiro-AAAA-MM-DD_HHMM.dump.gpg
+```
+
+---
+
 ## Desenvolvimento local
 
 ```bash

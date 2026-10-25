@@ -1,0 +1,113 @@
+name: Cópia da base de dados
+
+on:
+  # Todos os dias às 03:30 UTC
+  schedule:
+    - cron: '30 3 * * *'
+  # Botão "Run workflow" no separador Actions
+  workflow_dispatch:
+  # Ao alterar a cópia ou a reposição: autoteste com uma base de dados temporária
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/db-backup.yml
+      - scripts/db-backup.sh
+      - scripts/db-restore.sh
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    if: github.event_name != 'push' && github.repository == 'rfcbraz/casadoferreiro'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Confirmar que os segredos existem
+        id: secrets
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$BACKUP_PASSWORD" ]; then
+            echo "::warning::Faltam os segredos BACKUP_DATABASE_URL e/ou BACKUP_PASSWORD (Settings → Secrets and variables → Actions). Cópia não feita."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Copiar e encriptar
+        if: steps.secrets.outputs.ready == 'true'
+        id: dump
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+        run: bash scripts/db-backup.sh backup
+
+      - name: Guardar a cópia (90 dias)
+        if: steps.secrets.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.dump.outputs.name }}
+          path: ${{ steps.dump.outputs.file }}
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: error
+
+  selftest:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: teste
+          POSTGRES_DB: casa
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 5s --health-retries 20
+    env:
+      SOURCE_URL: postgresql://postgres:teste@localhost:5432/casa
+      TARGET_URL: postgresql://postgres:teste@localhost:5432/reposta
+      BACKUP_PASSWORD: password-de-teste-apenas
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Criar uma base de dados de teste com o esquema real
+        run: |
+          npm ci --no-audit --no-fund
+          DATABASE_URL="$SOURCE_URL" ADMIN_EMAIL=teste@exemplo.pt ADMIN_PASSWORD=password-de-teste-longa node setup-db.js
+          docker run --rm --network host postgres:18-alpine psql "$SOURCE_URL" -v ON_ERROR_STOP=1 -c \
+            "INSERT INTO \"Setting\" (\"key\", \"value\") VALUES ('cribsTotal', '3');"
+
+      - name: Copiar e encriptar
+        id: dump
+        run: DATABASE_URL="$SOURCE_URL" bash scripts/db-backup.sh backup
+
+      - name: A cópia está encriptada (não se lê sem a password)
+        run: |
+          if grep -aq 'cribsTotal' "${{ steps.dump.outputs.file }}"; then echo "::error::A cópia não está encriptada"; exit 1; fi
+          if gpg --batch --pinentry-mode loopback --passphrase errada --decrypt "${{ steps.dump.outputs.file }}" > /dev/null 2>&1; then
+            echo "::error::A cópia abriu com a password errada"; exit 1
+          fi
+
+      - name: Repor numa base vazia e comparar
+        run: |
+          docker run --rm --network host postgres:18-alpine psql "$SOURCE_URL" -c 'CREATE DATABASE reposta;'
+          DATABASE_URL="$TARGET_URL" bash scripts/db-restore.sh "${{ steps.dump.outputs.file }}"
+          count() { docker run --rm --network host postgres:18-alpine psql "$1" -tAc "$2"; }
+          for query in 'SELECT COUNT(*) FROM "Room"' 'SELECT COUNT(*) FROM "Admin"' "SELECT value FROM \"Setting\" WHERE key = 'cribsTotal'"; do
+            a="$(count "$SOURCE_URL" "$query")"; b="$(count "$TARGET_URL" "$query")"
+            echo "$query → original: $a, reposta: $b"
+            [ "$a" = "$b" ] || { echo "::error::Diferença depois de repor"; exit 1; }
+          done
+          echo "Autoteste concluído: a cópia repõe-se sem diferenças."
