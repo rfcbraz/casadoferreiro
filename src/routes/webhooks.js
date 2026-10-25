@@ -1,7 +1,8 @@
 // src/routes/webhooks.js
 const express = require('express');
 const prisma = require('../lib/prisma');
-const { sendReservationStatusUpdate, sendAdminNotification } = require('../services/email');
+const { sendReservationStatusUpdate, sendAdminNotification, sendDoubleBookingAlert } = require('../services/email');
+const { syncRoomCalendars, findImportedConflicts } = require('../services/ical');
 const { getStripeClient, refundPaymentIntent } = require('../services/stripe');
 const router = express.Router();
 
@@ -44,6 +45,8 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
             sendReservationStatusUpdate(reservation, 'PAID'),
             sendAdminNotification(reservation),
           ]).catch(err => console.error('Erro ao enviar emails após pagamento:', err));
+          // Em segundo plano: o Booking/Airbnb receberam uma reserva nestas datas entretanto?
+          checkDoubleBooking(reservation);
         } else {
           const reservation = await prisma.reservation.findUnique({ where: { id: reservationId } });
           if (reservation && ['CANCELLED', 'DECLINED'].includes(reservation.status)) {
@@ -92,5 +95,19 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
 
   res.json({ received: true });
 });
+
+// Lê já os calendários do Booking/Airbnb da casa e avisa o proprietário se houver noites em conflito
+async function checkDoubleBooking(reservation) {
+  try {
+    await syncRoomCalendars(reservation.roomId);
+    const conflicts = await findImportedConflicts(reservation);
+    if (conflicts.length) {
+      console.warn(`Possível reserva duplicada #${reservation.id.slice(0, 8)}: ${conflicts.length} noite(s) ocupadas no Booking/Airbnb`);
+      await sendDoubleBookingAlert(reservation, conflicts);
+    }
+  } catch (err) {
+    console.error('Erro ao verificar reserva duplicada após pagamento:', err);
+  }
+}
 
 module.exports = router;

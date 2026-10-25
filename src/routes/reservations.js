@@ -10,6 +10,7 @@ const { blockedConflictWhere } = require('../lib/blockedDates');
 const { verifyTurnstile, TURNSTILE_ERROR } = require('../lib/turnstile');
 const { signCheckoutCancel, isValidCheckoutCancelSignature } = require('../lib/checkoutSignature');
 const { checkCribs, cribsError } = require('../lib/cribs');
+const { syncRoomCalendars } = require('../services/ical');
 
 const MAX_PENDING_REQUESTS_PER_EMAIL = 3; // pedidos pendentes por email em 24 horas
 // Validade do link de pagamento: o Stripe aceita no máximo 24 h; 5 min de margem para diferenças de relógio
@@ -262,6 +263,16 @@ function reservationRef(reservation) {
   return reservation.id.slice(0, 8).toUpperCase();
 }
 
+// Data bloqueada que impede a aprovação: indica se veio do Booking/Airbnb
+function blockedDatesError(block) {
+  const platform = { BOOKING_COM: 'no Booking.com', AIRBNB: 'no Airbnb' }[block.source];
+  const error = new Error(platform
+    ? `Não é possível aprovar: estas datas já estão reservadas ${platform} (calendário verificado agora). Contacte o hóspede.`
+    : 'A unidade foi bloqueada para parte destas datas.');
+  error.status = 409;
+  return error;
+}
+
 function assertCribsForApproval(reservation, { available }) {
   if (reservation.cribs <= available) return;
   const free = available === 0 ? 'já não há berços livres' : `só ${available === 1 ? 'resta 1 livre' : `restam ${available} livres`}`;
@@ -276,6 +287,12 @@ async function approveReservationForPayment(reservation) {
     error.status = 503;
     throw error;
   }
+
+  // Datas bloqueadas (incluindo noites do Booking/Airbnb acabadas de ler): confirmar antes de criar o pagamento
+  const blockedBefore = await prisma.blockedDate.findFirst({
+    where: blockedConflictWhere(reservation.checkIn, reservation.checkOut, reservation.roomId),
+  });
+  if (blockedBefore) throw blockedDatesError(blockedBefore);
 
   // Berços: confirmar antes de criar o pagamento (volta a ser confirmado dentro da transação)
   if (reservation.cribs > 0) assertCribsForApproval(reservation, await checkCribs(prisma, reservation.checkIn, reservation.checkOut, { excludeReservationId: reservation.id }));
@@ -356,11 +373,7 @@ async function approveReservationForPayment(reservation) {
       const blockedConflict = await transaction.blockedDate.findFirst({
         where: blockedConflictWhere(reservation.checkIn, reservation.checkOut, reservation.roomId),
       });
-      if (blockedConflict) {
-        const error = new Error('A unidade foi bloqueada para parte destas datas.');
-        error.status = 409;
-        throw error;
-      }
+      if (blockedConflict) throw blockedDatesError(blockedConflict);
 
       if (current.cribs > 0) {
         assertCribsForApproval(current, await checkCribs(transaction, reservation.checkIn, reservation.checkOut, { excludeReservationId: reservation.id }));
@@ -430,6 +443,9 @@ router.patch('/:id/status', requireAuth, async (req, res, next) => {
         return res.status(409).json({ error: `A estadia mínima é de ${MINIMUM_STAY_NIGHTS} noites consecutivas.` });
       }
 
+      // Calendários do Booking/Airbnb lidos neste momento, para a verificação de datas usar dados frescos
+      await syncRoomCalendars(currentReservation.roomId)
+        .catch(err => console.error('Erro ao sincronizar calendários antes de aprovar:', err.message));
       try {
         const approval = await approveReservationForPayment(currentReservation);
         const emailPromises = [sendReservationPaymentLink(approval.reservation, approval.checkoutUrl)];

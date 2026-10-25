@@ -317,6 +317,7 @@ async function sendAdminNotification(reservation) {
         ${notes ? `${boxRow('Observações', `${escapeHtml(notes).replace(/\n/g, '<br>')}`)}` : ''}
         ${boxRow('Total', `€${reservation.totalPrice.toFixed(2)}`, true)}
       ${BOX_CLOSE}
+      ${isPaid ? closeDatesReminder(reservation) : ''}
       <a href="${adminUrl}" class="btn">Ver no Painel</a>
     </div>
     <div class="footer"><p>Casa do Ferreiro · Painel de Gestão</p></div>
@@ -328,6 +329,55 @@ async function sendAdminNotification(reservation) {
     subject: isPaid
       ? `Reserva paga #${ref}: ${String(guest.name).replace(/[\r\n]/g, ' ')} — ${room.name}`
       : `Novo pedido de reserva: ${String(guest.name).replace(/[\r\n]/g, ' ')} — ${room.name}`,
+    html,
+  });
+}
+
+// Data curta em português (ex.: "ter., 3 nov.")
+function shortDate(date) {
+  return new Date(date).toLocaleDateString('pt-PT', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+}
+
+const NOTICE_STYLE = "font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;border-radius:4px;padding:16px 20px;margin:24px 0;font-size:14px;line-height:1.6";
+
+// Caixa no email "Reserva paga": o Booking/Airbnb só leem o calendário do site de poucas em poucas horas
+function closeDatesReminder(reservation) {
+  return `<div style="${NOTICE_STYLE};background:#fff7e6;border:1px solid #f0c987;color:#5a4a38">
+    <strong style="color:#2a2118">📅 Feche estas datas no Booking e no Airbnb</strong><br>
+    Entrada ${shortDate(reservation.checkIn)} → saída ${shortDate(reservation.checkOut)} · ${escapeHtml(reservation.room.name)}<br>
+    O Booking e o Airbnb leem o calendário do site de poucas em poucas horas. Fechar já as datas nas apps evita uma reserva duplicada nesse intervalo.
+  </div>`;
+}
+
+// Aviso urgente: depois do pagamento, o Booking/Airbnb mostram noites ocupadas nesta estadia
+async function sendDoubleBookingAlert(reservation, conflicts) {
+  const guest = guestContact(reservation);
+  const ref = reservation.id.slice(0, 8).toUpperCase();
+  const adminUrl = `${String(process.env.FRONTEND_URL || 'https://casadoferreirovn.pt').replace(/\/$/, '')}/admin.html`;
+  const platforms = [...new Set(conflicts.map(conflict => conflict.source))].join(' e ');
+  const html = baseTemplate(`
+    <div class="header">
+      <h1>Casa do Ferreiro</h1>
+      <p>⚠ Possível reserva duplicada</p>
+    </div>
+    <div class="body">
+      <p>A reserva <strong>#${ref}</strong> foi paga no site, mas o calendário do ${platforms} indica noites ocupadas na mesma casa e nas mesmas datas. Verifique de imediato.</p>
+      ${BOX_OPEN}
+        ${boxRow('Referência', `#${ref}`)}
+        ${boxRow('Hóspede (site)', `${escapeHtml(guest.name)} · ${escapeHtml(guest.email)} · ${escapeHtml(guest.phone || '—')}`)}
+        ${boxRow('Casa', escapeHtml(reservation.room.name))}
+        ${boxRow('Estadia', `${shortDate(reservation.checkIn)} → ${shortDate(reservation.checkOut)}`)}
+        ${boxRow('Noites em conflito', conflicts.map(conflict => `${shortDate(`${conflict.date}T00:00:00Z`)} (${conflict.source})`).join('<br>'))}
+      ${BOX_CLOSE}
+      <p>Se for mesmo uma reserva duplicada, contacte um dos hóspedes para encontrar uma solução. Para devolver o pagamento do site, cancele a reserva no painel: o reembolso é feito automaticamente.</p>
+      <a href="${adminUrl}" class="btn">Abrir o painel</a>
+    </div>
+    <div class="footer"><p>Casa do Ferreiro · Painel de Gestão</p></div>
+  `);
+  await sendMail({
+    from: process.env.EMAIL_FROM,
+    to: RESERVATIONS_EMAIL,
+    subject: `⚠ Possível reserva duplicada #${ref} — ${reservation.room.name}`,
     html,
   });
 }
@@ -360,6 +410,7 @@ async function sendContactMessage({ name, email, phone, message }) {
 }
 
 module.exports = {
+  sendDoubleBookingAlert,
   sendContactMessage,
   sendReservationConfirmation,
   sendReservationPaymentLink,

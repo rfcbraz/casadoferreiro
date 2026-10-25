@@ -99,13 +99,18 @@ app.use('/ical', icalRoutes);
   } catch (err) {
     console.error('Erro na sincronização inicial iCal:', err);
   }
+  let syncing = false;
   setInterval(async () => {
+    if (syncing) return; // a anterior ainda não terminou
+    syncing = true;
     try {
       await syncExternalCalendars();
     } catch (err) {
       console.error('Erro na sincronização periódica iCal:', err);
+    } finally {
+      syncing = false;
     }
-  }, 60 * 60 * 1000);
+  }, 15 * 60 * 1000); // de 15 em 15 minutos
 })();
 
 // Health check

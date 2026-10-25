@@ -268,16 +268,35 @@ async function syncExternalCalendars() {
   });
 
   const results = [];
-  for (const room of rooms) {
-    if (room.bookingIcalUrl) {
-      results.push(await syncRoomIcalFeed(room.id, 'BOOKING_COM', room.bookingIcalUrl, 'Booking.com'));
-    }
-    if (room.airbnbIcalUrl) {
-      results.push(await syncRoomIcalFeed(room.id, 'AIRBNB', room.airbnbIcalUrl, 'Airbnb'));
-    }
-  }
-
+  for (const room of rooms) results.push(...await syncRoomFeeds(room));
   return results;
+}
+
+async function syncRoomFeeds(room) {
+  const results = [];
+  if (room.bookingIcalUrl) results.push(await syncRoomIcalFeed(room.id, 'BOOKING_COM', room.bookingIcalUrl, 'Booking.com'));
+  if (room.airbnbIcalUrl) results.push(await syncRoomIcalFeed(room.id, 'AIRBNB', room.airbnbIcalUrl, 'Airbnb'));
+  return results;
+}
+
+// Lê já os calendários do Booking/Airbnb de uma casa (antes de aprovar ou depois de um pagamento)
+async function syncRoomCalendars(roomId) {
+  const room = await prisma.room.findUnique({ where: { id: roomId } });
+  return room ? syncRoomFeeds(room) : [];
+}
+
+// Noites da estadia que o Booking/Airbnb indicam como ocupadas (possível reserva duplicada)
+async function findImportedConflicts(reservation) {
+  const blocks = await prisma.blockedDate.findMany({
+    where: {
+      roomId: reservation.roomId,
+      source: { in: ['BOOKING_COM', 'AIRBNB'] },
+      date: { gte: reservation.checkIn, lt: reservation.checkOut },
+    },
+    orderBy: { date: 'asc' },
+    select: { date: true, source: true },
+  });
+  return blocks.map(block => ({ date: block.date.toISOString().slice(0, 10), source: block.source === 'AIRBNB' ? 'Airbnb' : 'Booking.com' }));
 }
 
 function buildRoomCalendar(room, reservations, blockedDates) {
@@ -315,5 +334,7 @@ function buildRoomCalendar(room, reservations, blockedDates) {
 module.exports = {
   parseICalEvents,
   syncExternalCalendars,
+  syncRoomCalendars,
+  findImportedConflicts,
   buildRoomCalendar,
 };

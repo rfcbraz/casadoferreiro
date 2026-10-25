@@ -78,6 +78,9 @@ async function generate() {
   const owner = 'Proprietário (sempre em português)';
   await add(owner, 'Novo pedido de reserva', 'pt', () => email.sendAdminNotification({ ...sample, locale: 'en' }));
   await add(owner, 'Reserva paga', 'pt', () => email.sendAdminNotification({ ...sample, locale: 'en', status: 'PAID' }));
+  await add(owner, 'Possível reserva duplicada', 'pt', () => email.sendDoubleBookingAlert({ ...sample, status: 'PAID' }, [
+    { date: sample.checkIn.toISOString().slice(0, 10), source: 'Booking.com' },
+  ]));
   await add(owner, 'Mensagem do formulário de contacto', 'pt', () => email.sendContactMessage({
     name: 'João Pereira',
     email: 'joao.pereira@example.com',

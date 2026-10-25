@@ -25,7 +25,7 @@ Regras principais:
 - Estadia mínima de 2 noites; check-in a partir das 16:00, check-out até às 11:00.
 - Reservas para o próprio dia até às 22:00 (hora de Portugal).
 - O mesmo dia pode ter a saída de uma reserva e a entrada de outra. Um dia **bloqueado no painel** fica fechado o dia inteiro (sem entradas nem saídas).
-- Datas ocupadas no Booking.com/Airbnb são importadas por iCal e bloqueiam as noites correspondentes.
+- Datas ocupadas no Booking.com/Airbnb são importadas por iCal (de 15 em 15 minutos) e bloqueiam as noites correspondentes. Os calendários são lidos de novo no momento de aprovar (a aprovação é recusada se as datas já estiverem ocupadas lá) e depois de cada pagamento (se houver conflito, o proprietário recebe o aviso "Possível reserva duplicada"). O email "Reserva paga" lembra o proprietário de fechar as datas no Booking/Airbnb, que só leem o calendário do site de poucas em poucas horas.
 
 ## Preços
 
