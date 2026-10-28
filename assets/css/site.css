@@ -266,6 +266,8 @@ footer{background:var(--dark);padding:4rem 3rem 2rem}
 .footer-info-content ul{padding-left:1.25rem}
 .footer-info-content li+li{margin-top:.4rem}
 .footer-info-content a{color:var(--earth)}
+.footer-info-content .footer-info-q{font-family:'Jost',sans-serif;font-size:.78rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--dark);margin:1.4rem 0 .35rem}
+.footer-info-content .footer-info-q:first-child{margin-top:0}
 .footer-info-content a:hover{color:var(--accent)}
 .footer-map{display:block;width:100%;height:clamp(220px,28vw,320px);border:0;border-radius:var(--radius)}
 .footer-map-link{display:inline-block;margin-top:.75rem;color:var(--accent2);font-size:.82rem;text-decoration:none}
