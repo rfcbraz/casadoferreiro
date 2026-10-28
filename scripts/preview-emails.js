@@ -73,6 +73,7 @@ async function generate() {
     await add(group, '4. Pedido recusado', locale, () => email.sendReservationStatusUpdate({ ...reservation, status: 'DECLINED' }, 'DECLINED'));
     await add(group, '5. Reserva cancelada', locale, () => email.sendReservationStatusUpdate({ ...reservation, status: 'CANCELLED' }, 'CANCELLED'));
     await add(group, '6. Cancelada com reembolso', locale, () => email.sendReservationStatusUpdate({ ...reservation, status: 'CANCELLED', stripeRefundId: 're_exemplo' }, 'CANCELLED'));
+    await add(group, '7. Agradecimento e pedido de avaliação', locale, () => email.sendReviewRequest({ ...reservation, status: 'PAID' }, 'https://casadoferreirovn.pt/avaliacao.html?r=exemplo&sig=exemplo'));
   }
 
   const owner = 'Proprietário (sempre em português)';
@@ -81,6 +82,9 @@ async function generate() {
   await add(owner, 'Possível reserva duplicada', 'pt', () => email.sendDoubleBookingAlert({ ...sample, status: 'PAID' }, [
     { date: sample.checkIn.toISOString().slice(0, 10), source: 'Booking.com' },
   ]));
+  await add(owner, 'Nova avaliação', 'pt', () => email.sendNewReviewNotification(
+    { rating: 5, cleanliness: 5, comfort: 4, location: 5, consent: true, displayName: 'Maria S.', comment: 'Casa impecável e com uma vista incrível sobre a albufeira. Voltaremos!' },
+    { ...sample, status: 'PAID' }));
   await add(owner, 'Mensagem do formulário de contacto', 'pt', () => email.sendContactMessage({
     name: 'João Pereira',
     email: 'joao.pereira@example.com',

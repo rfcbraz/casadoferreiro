@@ -382,6 +382,71 @@ async function sendDoubleBookingAlert(reservation, conflicts) {
   });
 }
 
+// Depois da estadia: agradecer, pedir avaliação e convidar a voltar (idioma do hóspede)
+async function sendReviewRequest(reservation, reviewUrl) {
+  const locale = normalizeLocale(reservation.locale);
+  const t = emailText(locale);
+  const guest = guestContact(reservation);
+  const short = date => new Date(date).toLocaleDateString(DATE_LOCALES[locale], { day: 'numeric', month: 'long', timeZone: 'UTC' });
+  const html = baseTemplate(`
+    <div class="header">
+      <h1>Casa do Ferreiro</h1>
+      <p>${t.review.title}</p>
+    </div>
+    <div class="body">
+      <p>${t.dear(escapeHtml(guest.name))}</p>
+      <p>${t.review.intro(escapeHtml(reservation.room.name), short(reservation.checkIn), short(reservation.checkOut))}</p>
+      <p>${t.review.ask}</p>
+      <p><a href="${reviewUrl}" class="btn">${t.review.button}</a></p>
+      <p>${t.review.goodbye}</p>
+      <p>${t.review.signature}</p>
+    </div>
+    ${guestFooter(locale)}
+  `, locale);
+  await sendMail({
+    from: process.env.EMAIL_FROM,
+    to: guest.email,
+    replyTo: RESERVATIONS_EMAIL,
+    subject: t.review.subject,
+    html,
+  });
+}
+
+// Aviso ao proprietário: chegou uma avaliação (fica por publicar até ser aprovada no painel)
+async function sendNewReviewNotification(review, reservation) {
+  const ref = reservation.id.slice(0, 8).toUpperCase();
+  const adminUrl = `${String(process.env.FRONTEND_URL || 'https://casadoferreirovn.pt').replace(/\/$/, '')}/admin.html`;
+  const stars = count => (count ? '★'.repeat(count) + '☆'.repeat(5 - count) : '—');
+  const html = baseTemplate(`
+    <div class="header">
+      <h1>Casa do Ferreiro</h1>
+      <p>Nova avaliação</p>
+    </div>
+    <div class="body">
+      <p>Chegou uma nova avaliação. Fica por publicar até a aprovar no painel, no separador <strong>Avaliações</strong>.</p>
+      ${BOX_OPEN}
+        ${boxRow('Referência', `#${ref}`)}
+        ${boxRow('Hóspede', escapeHtml(review.displayName))}
+        ${boxRow('Casa', escapeHtml(reservation.room.name))}
+        ${boxRow('Global', `<span style="color:#c9893a">${stars(review.rating)}</span>`)}
+        ${boxRow('Limpeza', `<span style="color:#c9893a">${stars(review.cleanliness)}</span>`)}
+        ${boxRow('Conforto', `<span style="color:#c9893a">${stars(review.comfort)}</span>`)}
+        ${boxRow('Localização', `<span style="color:#c9893a">${stars(review.location)}</span>`)}
+        ${boxRow('Publicação no site', review.consent ? 'Autorizada' : 'Não autorizada (só para si)')}
+      ${BOX_CLOSE}
+      ${review.comment ? `<p><em>“${escapeHtml(review.comment).replace(/\n/g, '<br>')}”</em></p>` : ''}
+      <a href="${adminUrl}" class="btn">Ver no Painel</a>
+    </div>
+    <div class="footer"><p>Casa do Ferreiro · Painel de Gestão</p></div>
+  `);
+  await sendMail({
+    from: process.env.EMAIL_FROM,
+    to: RESERVATIONS_EMAIL,
+    subject: `Nova avaliação ${'★'.repeat(review.rating)} — ${reservation.room.name} #${ref}`,
+    html,
+  });
+}
+
 async function sendContactMessage({ name, email, phone, message }) {
   const html = baseTemplate(`
     <div class="header">
@@ -410,6 +475,8 @@ async function sendContactMessage({ name, email, phone, message }) {
 }
 
 module.exports = {
+  sendReviewRequest,
+  sendNewReviewNotification,
   sendDoubleBookingAlert,
   sendContactMessage,
   sendReservationConfirmation,

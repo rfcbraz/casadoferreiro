@@ -1759,3 +1759,45 @@ if (paymentResult === 'success') {
 if (paymentResult) history.replaceState(null, '', window.location.pathname + window.location.hash);
 
 loadRooms();
+loadReviews();
+
+// ── Avaliações publicadas (secção escondida enquanto não houver nenhuma) ──
+const REVIEWS_FIRST_PAGE = 6;
+function escapeReviewText(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+}
+function reviewStars(value) {
+  const full = Math.round(value);
+  return `<span class="review-stars-display" aria-label="${value} / 5">${'★'.repeat(full)}<span class="off">${'★'.repeat(5 - full)}</span></span>`;
+}
+async function loadReviews() {
+  try {
+    const res = await fetchWithRetry(`${API}/reviews`);
+    const data = await res.json();
+    if (!res.ok || !data.summary?.count) return;
+    const average = new Intl.NumberFormat(currentLanguage, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(data.summary.average);
+    const roomChips = Object.entries(data.summary.rooms).map(([roomId, room]) => {
+      const name = data.reviews.find(review => review.roomId === roomId)?.roomType || '';
+      return `<span class="reviews-room">${escapeReviewText(name)} · ${new Intl.NumberFormat(currentLanguage, { maximumFractionDigits: 1 }).format(room.average)} ★</span>`;
+    }).join('');
+    document.getElementById('reviews-summary').innerHTML = `
+      <div class="reviews-average"><span class="reviews-average-num">${average}</span>${reviewStars(data.summary.average)}</div>
+      <span class="reviews-count">${data.summary.count} ${translateText(data.summary.count === 1 ? 'avaliação' : 'avaliações')}</span>
+      ${Object.keys(data.summary.rooms).length > 1 ? roomChips : ''}`;
+    const month = value => value ? new Date(`${value}-01T00:00:00Z`).toLocaleDateString(currentLanguage, { month: 'long', year: 'numeric', timeZone: 'UTC' }) : '';
+    const grid = document.getElementById('reviews-grid');
+    grid.innerHTML = data.reviews.map((review, index) => `
+      <article class="review-item"${index >= REVIEWS_FIRST_PAGE ? ' hidden' : ''}>
+        ${reviewStars(review.rating)}
+        ${review.comment ? `<p class="review-item-comment">${escapeReviewText(review.comment)}</p>` : ''}
+        ${review.ownerReply ? `<div class="review-item-reply"><strong>${translateText('Resposta da Casa do Ferreiro')}</strong>${escapeReviewText(review.ownerReply)}</div>` : ''}
+        <div class="review-item-meta"><strong>${escapeReviewText(review.displayName)}</strong> · ${escapeReviewText(review.roomName)} · ${escapeReviewText(month(review.stayMonth))}</div>
+      </article>`).join('');
+    const more = document.getElementById('reviews-more');
+    more.hidden = data.reviews.length <= REVIEWS_FIRST_PAGE;
+    more.onclick = () => { grid.querySelectorAll('.review-item[hidden]').forEach(item => { item.hidden = false; }); more.hidden = true; };
+    document.getElementById('reviews').hidden = false;
+  } catch (err) {
+    console.error('Erro ao carregar avaliações:', err);
+  }
+}

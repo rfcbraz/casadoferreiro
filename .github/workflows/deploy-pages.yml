@@ -30,7 +30,7 @@ jobs:
       - name: Prepare pages artifact
         run: |
           mkdir -p public
-          cp index.html admin.html 404.html robots.txt sitemap.xml .nojekyll public/
+          cp index.html admin.html avaliacao.html 404.html robots.txt sitemap.xml .nojekyll public/
           cp -R assets public/
           # Versão nos links de CSS/JS: os browsers descarregam os ficheiros novos em cada publicação
           sed -i "s/__BUILD__/${GITHUB_SHA::8}/g" public/*.html

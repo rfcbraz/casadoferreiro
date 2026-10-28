@@ -50,6 +50,16 @@ const TEXT = {
       invite: 'Teremos todo o gosto em recebê-lo/a noutra altura. Consulte as datas disponíveis no nosso site:',
       button: 'Ver datas disponíveis',
     },
+    // Depois da estadia: agradecer, pedir avaliação e convidar a voltar
+    review: {
+      title: 'Obrigado pela sua estadia',
+      subject: 'Obrigado pela sua estadia na Casa do Ferreiro',
+      intro: (room, from, to) => `Foi um prazer recebê-lo/a na <strong>${room}</strong>, de ${from} a ${to}. Esperamos que tenha descansado e aproveitado a albufeira e a Serra do Gerês.`,
+      ask: 'A sua opinião é muito importante para nós e ajuda outros viajantes a escolher. Leva menos de um minuto:',
+      button: 'Avaliar a minha estadia',
+      goodbye: 'Esperamos voltar a recebê-lo/a em breve na Casa do Ferreiro.',
+      signature: 'Com os melhores cumprimentos,<br>Casa do Ferreiro',
+    },
     updateTitle: label => `Atualização de reserva — ${label}`,
     updateSubject: (label, ref) => `Reserva ${label} — Casa do Ferreiro #${ref}`,
     status: {
@@ -101,6 +111,15 @@ const TEXT = {
       invite: 'We would love to welcome you on other dates. You can check availability on our website:',
       button: 'See available dates',
     },
+    review: {
+      title: 'Thank you for staying with us',
+      subject: 'Thank you for staying at Casa do Ferreiro',
+      intro: (room, from, to) => `It was a pleasure to welcome you to <strong>${room}</strong> from ${from} to ${to}. We hope you had a restful time by the reservoir and the Gerês mountains.`,
+      ask: 'Your feedback means a lot to us and helps other travellers choose. It takes less than a minute:',
+      button: 'Review my stay',
+      goodbye: 'We hope to welcome you back to Casa do Ferreiro soon.',
+      signature: 'Kind regards,<br>Casa do Ferreiro',
+    },
     updateTitle: label => `Booking update — ${label}`,
     updateSubject: (label, ref) => `Booking ${label} — Casa do Ferreiro #${ref}`,
     status: {
@@ -151,6 +170,15 @@ const TEXT = {
       message: 'Gracias por su interés en Casa do Ferreiro. Lamentablemente, las fechas que eligió ya no están disponibles.',
       invite: 'Será un placer recibirle en otras fechas. Puede consultar la disponibilidad en nuestra web:',
       button: 'Ver fechas disponibles',
+    },
+    review: {
+      title: 'Gracias por su estancia',
+      subject: 'Gracias por su estancia en Casa do Ferreiro',
+      intro: (room, from, to) => `Ha sido un placer recibirle en <strong>${room}</strong>, del ${from} al ${to}. Esperamos que haya descansado y disfrutado del embalse y de la Sierra de Gerês.`,
+      ask: 'Su opinión es muy importante para nosotros y ayuda a otros viajeros a elegir. Le llevará menos de un minuto:',
+      button: 'Valorar mi estancia',
+      goodbye: 'Esperamos volver a recibirle pronto en Casa do Ferreiro.',
+      signature: 'Un cordial saludo,<br>Casa do Ferreiro',
     },
     updateTitle: label => `Actualización de la reserva — ${label}`,
     updateSubject: (label, ref) => `Reserva ${label} — Casa do Ferreiro #${ref}`,

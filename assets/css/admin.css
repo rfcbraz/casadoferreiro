@@ -134,3 +134,17 @@ a.admin-close{display:block;text-align:center;text-decoration:none}
 .crib-usage-row.full strong{color:#991b1b}
 @media (max-width:1100px){.crib-admin-grid{grid-template-columns:1fr}.crib-hold-row{grid-template-columns:1fr 1fr}}
 @media (max-width:600px){.crib-hold-form{grid-template-columns:1fr 1fr}.crib-hold-form .form-field:nth-child(4){grid-column:1/-1}}
+.admin-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:#fff;font-size:.65rem;font-weight:600;margin-left:auto}
+.admin-badge[hidden]{display:none}
+.admin-stars{color:var(--accent);letter-spacing:.05em}
+.admin-stars .off{color:var(--warm)}
+.reviews-admin-list{display:grid;gap:1rem}
+.review-admin-item{background:var(--white);border:1px solid var(--warm);border-radius:var(--radius);padding:1.25rem 1.5rem;display:grid;gap:.6rem}
+.review-admin-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;font-size:.9rem;flex-wrap:wrap}
+.review-admin-sub{font-size:.75rem;color:var(--muted)}
+.review-admin-comment{font-size:.9rem;line-height:1.6;color:var(--dark);white-space:pre-line}
+.review-admin-comment.empty{color:var(--muted);font-style:italic}
+.review-admin-private{font-size:.8rem;color:#854d0e;background:#fef9c3;padding:.4rem .7rem;border-radius:2px}
+.review-admin-reply textarea{min-height:60px}
+#admin-tab-reviews .admin-cards{grid-template-columns:repeat(3,1fr)}
+@media (max-width:860px){#admin-tab-reviews .admin-cards{grid-template-columns:1fr}}

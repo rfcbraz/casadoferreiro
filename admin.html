@@ -43,6 +43,7 @@
       <div class="admin-nav-item" onclick="adminTab('availability',this)">📅 Disponibilidade</div>
       <div class="admin-nav-item" onclick="adminTab('prices',this)">💶 Preços</div>
       <div class="admin-nav-item" onclick="adminTab('stats',this)">📊 Estatísticas</div>
+      <div class="admin-nav-item" onclick="adminTab('reviews',this)">⭐ Avaliações <span class="admin-badge" id="reviews-pending-badge" hidden></span></div>
     </div>
     <a class="admin-close" href="./">← Voltar ao site</a>
     <button class="admin-logout admin-password-btn" type="button" onclick="openPasswordModal()">Alterar password</button>
@@ -292,6 +293,21 @@
           <div id="promotions-list" class="price-rules-list"></div>
         </div>
       </div>
+    </div>
+
+    <div id="admin-tab-reviews" style="display:none">
+      <div class="admin-header">
+        <div class="admin-title">Avaliações</div>
+        <div class="admin-tabs">
+          <div class="admin-tab review-filter active" onclick="filterReviews('PENDING',this)">Por publicar</div>
+          <div class="admin-tab review-filter" onclick="filterReviews('PUBLISHED',this)">Publicadas</div>
+          <div class="admin-tab review-filter" onclick="filterReviews('HIDDEN',this)">Ocultas</div>
+          <div class="admin-tab review-filter" onclick="filterReviews(null,this)">Todas</div>
+        </div>
+      </div>
+      <p class="price-admin-intro">O hóspede recebe o pedido de avaliação por email no dia seguinte à saída. As avaliações só aparecem no site depois de as publicar aqui, e só as que o hóspede autorizou a publicar.</p>
+      <div class="admin-cards" id="reviews-cards"></div>
+      <div id="reviews-admin-list" class="reviews-admin-list"><div class="price-rule-empty">A carregar...</div></div>
     </div>
 
     <div id="admin-tab-stats" style="display:none">

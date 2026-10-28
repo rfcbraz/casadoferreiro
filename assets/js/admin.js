@@ -13,6 +13,7 @@ function showAdminPanel() {
   loadAdminStats();
   loadAdminReservations();
   startAdminReservationPolling();
+  loadAdminReviews(); // contador de avaliações por publicar no menu
 }
 
 function startAdminReservationPolling() {
@@ -62,6 +63,7 @@ function adminTab(tab, el) {
   el.classList.add('active');
   if (tab === 'reservations') loadAdminReservations();
   if (tab === 'stats') loadAdminStats();
+  if (tab === 'reviews') loadAdminReviews();
   if (tab === 'rooms') loadAdminRooms();
   if (tab === 'prices') loadPriceAdminRooms();
   if (tab === 'availability') {
@@ -397,6 +399,97 @@ async function changeAdminPassword(event) {
   } finally {
     btn.disabled = false;
   }
+}
+
+// ── Avaliações ────────────────────────────────────────────
+let adminReviews = [];
+let adminReviewsFilter = 'PENDING';
+const REVIEW_STATUS_LABEL = { PENDING: 'Por publicar', PUBLISHED: 'Publicada', HIDDEN: 'Oculta' };
+
+function adminStars(value) {
+  return value ? `<span class="admin-stars">${'★'.repeat(value)}<span class="off">${'★'.repeat(5 - value)}</span></span>` : '—';
+}
+
+async function loadAdminReviews() {
+  const list = document.getElementById('reviews-admin-list');
+  if (!list || !adminToken) return;
+  try {
+    const res = await fetch(`${API}/reviews/admin`, { headers: { Authorization: `Bearer ${adminToken}` } });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    adminReviews = data;
+    renderAdminReviews();
+  } catch (err) {
+    console.error('Erro avaliações:', err);
+    list.innerHTML = '<div class="price-rule-empty" style="color:#dc2626">Não foi possível carregar as avaliações.</div>';
+  }
+}
+
+function filterReviews(status, el) {
+  adminReviewsFilter = status;
+  document.querySelectorAll('.review-filter').forEach(tab => tab.classList.remove('active'));
+  el.classList.add('active');
+  renderAdminReviews();
+}
+
+function renderAdminReviews() {
+  const published = adminReviews.filter(review => review.status === 'PUBLISHED');
+  const pending = adminReviews.filter(review => review.status === 'PENDING');
+  const average = list => list.length ? (list.reduce((sum, review) => sum + review.rating, 0) / list.length).toLocaleString('pt-PT', { maximumFractionDigits: 1 }) : '—';
+  document.getElementById('reviews-cards').innerHTML = `
+    <div class="admin-card"><div class="admin-card-label">Média (todas)</div><div class="admin-card-num">${average(adminReviews)}</div><div class="admin-card-sub">${adminReviews.length} avaliação(ões)</div></div>
+    <div class="admin-card"><div class="admin-card-label">Média no site</div><div class="admin-card-num">${average(published)}</div><div class="admin-card-sub">${published.length} publicada(s)</div></div>
+    <div class="admin-card"><div class="admin-card-label">Por publicar</div><div class="admin-card-num">${pending.length}</div><div class="admin-card-sub">${pending.length ? 'Aguardam a sua decisão' : 'Tudo em dia'}</div></div>`;
+  const badge = document.getElementById('reviews-pending-badge');
+  if (badge) { badge.hidden = !pending.length; badge.textContent = pending.length; }
+
+  const list = document.getElementById('reviews-admin-list');
+  const visible = adminReviews.filter(review => !adminReviewsFilter || review.status === adminReviewsFilter);
+  if (!visible.length) {
+    list.innerHTML = '<div class="price-rule-empty">Sem avaliações nesta lista.</div>';
+    return;
+  }
+  list.innerHTML = visible.map(review => `
+    <div class="review-admin-item">
+      <div class="review-admin-head">
+        <div>${adminStars(review.rating)} <strong>${escapeAdminHtml(review.displayName)}</strong> · ${escapeAdminHtml(review.roomName)} · ${formatAdminDate(review.checkIn)} → ${formatAdminDate(review.checkOut)}</div>
+        <span class="admin-status ${review.status === 'PUBLISHED' ? 'confirmed' : review.status === 'HIDDEN' ? 'cancelled' : 'pending'}">${REVIEW_STATUS_LABEL[review.status] || review.status}</span>
+      </div>
+      <div class="review-admin-sub">#${review.ref} · ${escapeAdminHtml(review.guestEmail)} · recebida ${formatAdminDate(review.createdAt)} · Limpeza ${adminStars(review.cleanliness)} · Conforto ${adminStars(review.comfort)} · Localização ${adminStars(review.location)}</div>
+      ${review.comment ? `<p class="review-admin-comment">${escapeAdminHtml(review.comment)}</p>` : '<p class="review-admin-comment empty">Sem comentário.</p>'}
+      ${review.consent ? '' : '<p class="review-admin-private">🔒 O hóspede não autorizou a publicação: esta avaliação é só para si.</p>'}
+      ${review.consent ? `<div class="form-field review-admin-reply"><label for="reply-${review.id}">Resposta pública (opcional)</label><textarea id="reply-${review.id}" maxlength="1000" rows="2" placeholder="Ex.: Obrigado, Maria! Foi um prazer recebê-la.">${escapeAdminHtml(review.ownerReply || '')}</textarea></div>` : ''}
+      <div class="admin-actions">
+        ${review.status !== 'PUBLISHED' && review.consent ? `<button class="admin-action" type="button" onclick="updateReview('${review.id}', { status: 'PUBLISHED' })">✓ Publicar</button>` : ''}
+        ${review.status !== 'HIDDEN' ? `<button class="admin-action" type="button" onclick="updateReview('${review.id}', { status: 'HIDDEN' })">Ocultar</button>` : ''}
+        ${review.consent ? `<button class="admin-action" type="button" onclick="updateReview('${review.id}', { ownerReply: document.getElementById('reply-${review.id}').value })">Guardar resposta</button>` : ''}
+        <button class="admin-action" type="button" onclick="deleteReview('${review.id}')">🗑 Apagar</button>
+      </div>
+    </div>`).join('');
+}
+
+async function updateReview(id, changes) {
+  try {
+    const res = await fetch(`${API}/reviews/admin/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify(changes)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { showToast(data.error || 'Erro ao guardar.'); return; }
+    showToast(changes.status === 'PUBLISHED' ? '✓ Avaliação publicada no site.' : changes.status === 'HIDDEN' ? 'Avaliação ocultada.' : '✓ Resposta guardada.');
+    loadAdminReviews();
+  } catch (err) { showToast('Erro de ligação.'); }
+}
+
+async function deleteReview(id) {
+  if (!confirm('Apagar esta avaliação? Esta ação não pode ser anulada.')) return;
+  try {
+    const res = await fetch(`${API}/reviews/admin/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${adminToken}` } });
+    if (!res.ok) { showToast('Erro ao apagar.'); return; }
+    showToast('Avaliação apagada.');
+    loadAdminReviews();
+  } catch (err) { showToast('Erro de ligação.'); }
 }
 
 function closeEditRoom() {

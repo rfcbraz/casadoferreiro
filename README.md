@@ -93,6 +93,13 @@ Os registos de email (MX, SPF, DKIM da securemail e do Resend, `send`) são inde
 
 ---
 
+## Avaliações
+
+- No dia seguinte à saída (a partir das 10:00), cada reserva paga recebe um email de agradecimento no idioma do hóspede, com um link pessoal e assinado para avaliar a estadia (`avaliacao.html`). Só é enviado uma vez e só para estadias terminadas há menos de 14 dias.
+- O hóspede dá 1–5 estrelas (e, opcionalmente, limpeza, conforto e localização), escreve um comentário e escolhe se autoriza a publicação com o nome abreviado ("Maria S."). Uma avaliação por reserva.
+- O proprietário recebe um email a cada avaliação nova e decide no painel (**Avaliações**): publicar, ocultar, responder ou apagar. Só as autorizadas podem ser publicadas.
+- O site mostra a secção "A opinião dos nossos hóspedes" (média, número e comentários) apenas quando há avaliações publicadas.
+
 ## Cópias da base de dados
 
 O workflow [`.github/workflows/db-backup.yml`](.github/workflows/db-backup.yml) faz **todos os dias às 03:30 UTC** uma cópia completa da base de dados (`pg_dump`), **encriptada com password** (AES-256, GnuPG), e guarda-a 90 dias como *artifact* do GitHub Actions. O repositório é público: sem a password as cópias não se abrem.

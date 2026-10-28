@@ -1,0 +1,33 @@
+/* Casa do Ferreiro — página de avaliação da estadia (depois de base.css) */
+body{background:var(--dark)}
+.review-page{min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:1.5rem;padding:2.5rem 1rem 4rem}
+.review-brand{font-family:'Cormorant Garamond',serif;font-size:1.6rem;color:var(--accent2);text-decoration:none;letter-spacing:.04em}
+.review-card{width:100%;max-width:560px;background:var(--white);border-radius:var(--radius);padding:2.25rem;display:grid;gap:1.25rem}
+.review-card[hidden]{display:none}
+.review-card h1{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:2rem;line-height:1.2;color:var(--dark)}
+.review-card p{color:var(--muted);line-height:1.7;font-size:.95rem}
+.review-stay{margin-top:-.75rem}
+.review-stars{border:0;padding:0;margin:0;display:grid;gap:.4rem}
+.review-stars legend{font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--earth);margin-bottom:.4rem}
+.review-stars-main legend{font-size:.8rem}
+.review-extras{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}
+.star-input{display:flex;gap:.15rem}
+.star-input button{background:none;border:0;padding:.1rem;font-size:1.5rem;line-height:1;color:var(--warm);cursor:pointer;transition:color .15s,transform .15s}
+.review-stars-main .star-input button{font-size:2.4rem}
+.star-input button.on{color:var(--accent)}
+.star-input button:hover{transform:scale(1.1)}
+.star-input button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+.review-consent{display:flex;gap:.6rem;align-items:flex-start;font-size:.85rem;color:var(--dark);line-height:1.5;cursor:pointer}
+.review-consent input{margin-top:.2rem;accent-color:var(--accent);width:16px;height:16px;flex:none}
+.review-error{color:#b42318;font-size:.85rem;min-height:1em}
+.review-error:empty{display:none}
+.review-submit{background:var(--accent);color:#fff;border:0;padding:1rem;font-family:'Jost',sans-serif;font-size:.85rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;border-radius:2px;transition:background .2s}
+.review-submit:hover{background:var(--dark)}
+.review-submit:disabled{opacity:.6;cursor:wait}
+.review-link{color:var(--accent);font-size:.9rem}
+.review-check{width:56px;height:56px;border-radius:50%;background:#dcfce7;color:#15803d;display:flex;align-items:center;justify-content:center;font-size:1.8rem}
+@media (max-width:540px){
+  .review-card{padding:1.5rem}
+  .review-extras{grid-template-columns:1fr}
+  .review-card h1{font-size:1.7rem}
+}

@@ -8,7 +8,7 @@ const { normalizeParty, validateParty, countedGuests, calculateQuote } = require
 const { loadPricing } = require('../lib/priceRules');
 const { blockedConflictWhere } = require('../lib/blockedDates');
 const { verifyTurnstile, TURNSTILE_ERROR } = require('../lib/turnstile');
-const { signCheckoutCancel, isValidCheckoutCancelSignature } = require('../lib/checkoutSignature');
+const { signCheckoutCancel, isValidCheckoutCancelSignature } = require('../lib/signedLinks');
 const { checkCribs, cribsError } = require('../lib/cribs');
 const { syncRoomCalendars } = require('../services/ical');
 

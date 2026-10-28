@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://casadaserra-production.up.railway.app; frame-src 'none'; form-action 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/images/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
+<meta name="theme-color" content="#2a2118">
+<title>Avaliar a estadia · Casa do Ferreiro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://casadaserra-production.up.railway.app" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/base.css?v=__BUILD__">
+<link rel="stylesheet" href="assets/css/review.css?v=__BUILD__">
+</head>
+<body>
+<main class="review-page">
+  <a class="review-brand" href="./">Casa do Ferreiro</a>
+
+  <section class="review-card" id="review-loading" aria-live="polite">
+    <p data-i18n="loading">A carregar…</p>
+  </section>
+
+  <section class="review-card" id="review-error" hidden>
+    <h1 data-i18n="errorTitle">Não foi possível abrir a avaliação</h1>
+    <p id="review-error-text"></p>
+    <a class="review-link" href="./" data-i18n="backToSite">Voltar ao site</a>
+  </section>
+
+  <section class="review-card" id="review-done" hidden>
+    <div class="review-check" aria-hidden="true">✓</div>
+    <h1 data-i18n="thanksTitle">Obrigado pela sua avaliação!</h1>
+    <p data-i18n="thanksText">A sua opinião ajuda-nos a melhorar e a receber cada vez melhor os nossos hóspedes. Esperamos voltar a vê-lo/a em breve.</p>
+    <a class="review-link" href="./" data-i18n="backToSite">Voltar ao site</a>
+  </section>
+
+  <form class="review-card" id="review-form" hidden novalidate>
+    <h1><span data-i18n="hello">Olá</span> <span id="review-first-name"></span>,</h1>
+    <p class="review-stay" id="review-stay"></p>
+
+    <fieldset class="review-stars review-stars-main">
+      <legend data-i18n="overall">Como avalia a sua estadia?</legend>
+      <div class="star-input" data-name="rating"></div>
+    </fieldset>
+
+    <div class="review-extras">
+      <fieldset class="review-stars">
+        <legend data-i18n="cleanliness">Limpeza</legend>
+        <div class="star-input" data-name="cleanliness"></div>
+      </fieldset>
+      <fieldset class="review-stars">
+        <legend data-i18n="comfort">Conforto</legend>
+        <div class="star-input" data-name="comfort"></div>
+      </fieldset>
+      <fieldset class="review-stars">
+        <legend data-i18n="location">Localização</legend>
+        <div class="star-input" data-name="location"></div>
+      </fieldset>
+    </div>
+
+    <div class="form-field">
+      <label for="review-comment" data-i18n="commentLabel">O que mais gostou? O que podemos melhorar?</label>
+      <textarea id="review-comment" maxlength="2000" rows="6"></textarea>
+    </div>
+
+    <label class="review-consent">
+      <input type="checkbox" id="review-consent" checked>
+      <span><span data-i18n="consent">Autorizo a publicação desta avaliação no site, com o nome</span> <strong id="review-display-name"></strong></span>
+    </label>
+
+    <p class="review-error" id="review-form-error" role="alert"></p>
+    <button class="review-submit" type="submit" data-i18n="submit">Enviar avaliação</button>
+  </form>
+</main>
+<script src="assets/js/common.js?v=__BUILD__"></script>
+<script src="assets/js/review.js?v=__BUILD__"></script>
+</body>
+</html>

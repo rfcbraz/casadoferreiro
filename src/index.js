@@ -13,6 +13,8 @@ const availabilityRoutes = require('./routes/availability');
 const icalRoutes = require('./routes/ical');
 const webhookRoutes = require('./routes/webhooks');
 const contactRoutes = require('./routes/contact');
+const reviewRoutes = require('./routes/reviews');
+const { sendDueReviewRequests } = require('./services/reviewRequests');
 const { syncExternalCalendars } = require('./services/ical');
 
 const app = express();
@@ -77,6 +79,14 @@ app.use('/api/reservations', rateLimit({
   message: { error: 'Limite de reservas atingido. Tente novamente em 1 hora.' }
 }));
 
+// Avaliações: 10 envios por hora e por IP
+app.use('/api/reviews', rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  skip: req => req.method !== 'POST',
+  message: { error: 'Demasiados envios. Tente novamente mais tarde.' }
+}));
+
 // Rate limiting para o formulário de contacto
 app.use('/api/contact', rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
@@ -86,6 +96,7 @@ app.use('/api/contact', rateLimit({
 
 // ── Rotas ──────────────────────────────────────────────────
 app.use('/api/contact', contactRoutes);
+app.use('/api/reviews', reviewRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/reservations', reservationRoutes);
 app.use('/api/availability', availabilityRoutes);
@@ -112,6 +123,12 @@ app.use('/ical', icalRoutes);
     }
   }, 15 * 60 * 1000); // de 15 em 15 minutos
 })();
+
+// Email de agradecimento e pedido de avaliação: verificar de hora a hora (e logo ao arrancar)
+const runReviewRequests = () => sendDueReviewRequests()
+  .catch(err => console.error('Erro nos pedidos de avaliação:', err));
+setTimeout(runReviewRequests, 30 * 1000);
+setInterval(runReviewRequests, 60 * 60 * 1000);
 
 // Health check
 app.get('/health', (req, res) => {

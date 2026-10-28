@@ -36,6 +36,25 @@ model Room {
   promotions   Promotion[]
 }
 
+// Avaliação de uma estadia (uma por reserva), publicada no site só depois de aprovada no painel
+model Review {
+  id            String    @id @default(uuid())
+  reservationId String    @unique
+  roomId        String
+  rating        Int       // 1 a 5
+  cleanliness   Int?
+  comfort       Int?
+  location      Int?
+  comment       String    @default("")
+  displayName   String    // ex.: "Maria S."
+  consent       Boolean   @default(false) // autorizou a publicação no site
+  locale        String    @default("pt")
+  status        String    @default("PENDING") // PENDING, PUBLISHED, HIDDEN
+  ownerReply    String?
+  ownerReplyAt  DateTime?
+  createdAt     DateTime  @default(now())
+}
+
 // Definições gerais do painel (ex.: cribsTotal = número de berços partilhados pelas casas)
 model Setting {
   key       String   @id
@@ -122,6 +141,7 @@ model Reservation {
   stripeRefundId  String?           @unique
   paymentExpiresAt DateTime?
   paidAt          DateTime?
+  reviewRequestSentAt DateTime? // email de agradecimento e pedido de avaliação
   notes           String? // notas internas do dono
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
