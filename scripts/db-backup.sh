@@ -11,9 +11,22 @@ mkdir -p "$OUT_DIR"
 STAMP="$(date -u +%Y-%m-%d_%H%M)"
 DUMP="$OUT_DIR/casa-ferreiro-$STAMP.dump"
 
-# Formato "custom": comprimido e próprio para pg_restore
-docker run --rm --network host -e DATABASE_URL postgres:18-alpine \
-  sh -c 'pg_dump --format=custom --no-owner --no-acl "$DATABASE_URL"' > "$DUMP"
+# Formato "custom": comprimido e próprio para pg_restore.
+# No Railway serverless a base de dados pode estar a dormir: a primeira ligação acorda-a
+# ("the database system is starting up"), por isso tenta várias vezes antes de desistir.
+ATTEMPTS=8
+for attempt in $(seq 1 "$ATTEMPTS"); do
+  if docker run --rm --network host -e DATABASE_URL postgres:18-alpine \
+    sh -c 'pg_dump --format=custom --no-owner --no-acl "$DATABASE_URL"' > "$DUMP"; then
+    break
+  fi
+  if [ "$attempt" -eq "$ATTEMPTS" ]; then
+    echo "Não foi possível ligar à base de dados após $ATTEMPTS tentativas." >&2
+    exit 1
+  fi
+  echo "Base de dados ainda a arrancar (tentativa $attempt/$ATTEMPTS); nova tentativa em 20 s..." >&2
+  sleep 20
+done
 
 # Confirmar que a cópia é legível antes de a guardar
 TABLES="$(docker run --rm -i postgres:18-alpine pg_restore --list < "$DUMP" | grep -c ' TABLE ' || true)"
