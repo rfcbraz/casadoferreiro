@@ -788,28 +788,59 @@ function bindRoomCardEvents() {
 }
 
 // ── Carregar quartos da API ───────────────────────────────
-async function loadRooms() {
+// O servidor pode estar a dormir (até ~30 s a acordar). Para não deixar a secção vazia,
+// mostra-se logo a última versão conhecida (guardada neste browser ou publicada com o site)
+// e troca-se pela versão do servidor quando ela chega.
+const ROOMS_CACHE_KEY = 'casadaserra-rooms';
+const ROOMS_RETRY_DELAYS_MS = [1000, 2000, 3000, 5000, 5000, 8000, 8000];
+
+function showRooms(rooms) {
+  allRooms = rooms;
+  populateRoomSelect();
+  renderRoomCards();
+  bindRoomCardEvents();
+  renderAvailRooms(allRooms);
+  updateAvailabilitySummary();
+}
+
+async function loadSavedRooms() {
   try {
-    const res = await fetchWithRetry(`${API}/rooms`);
+    const saved = JSON.parse(localStorage.getItem(ROOMS_CACHE_KEY));
+    if (Array.isArray(saved) && saved.length) return saved;
+  } catch {}
+  try {
+    const res = await fetch('assets/data/rooms.json', { cache: 'no-cache' });
+    const rooms = res.ok ? await res.json() : null;
+    if (Array.isArray(rooms) && rooms.length) return rooms;
+  } catch {}
+  return null;
+}
+
+async function loadRooms() {
+  const live = fetchWithRetry(`${API}/rooms`, {}, ROOMS_RETRY_DELAYS_MS);
+  let shown = false;
+  loadSavedRooms().then(rooms => {
+    if (rooms && !allRooms.length) { showRooms(rooms); shown = true; }
+  });
+  try {
+    const res = await live;
     const rooms = await res.json();
     if (!res.ok || !Array.isArray(rooms)) throw new Error(rooms?.error || `HTTP ${res.status}`);
-    allRooms = rooms;
-    populateRoomSelect();
-    renderRoomCards();
-    bindRoomCardEvents();
-    renderAvailRooms(allRooms);
-    updateAvailabilitySummary();
+    showRooms(rooms);
+    try { localStorage.setItem(ROOMS_CACHE_KEY, JSON.stringify(rooms)); } catch {}
     // Calendário começa com todas as casas: risca as noites em que nenhuma está livre
     loadPublicCalAvailability(calendarRoomId);
   } catch(err) {
     console.error('Erro ao carregar quartos:', err);
-    showToast(translateText('Não foi possível carregar as casas. Atualize a página dentro de momentos.'));
+    if (!shown) showToast(translateText('Não foi possível carregar as casas. Atualize a página dentro de momentos.'));
   }
 }
 
 function populateRoomSelect() {
   const sel = document.getElementById('f-room');
   const barSel = document.getElementById('bar-room');
+  // Pode correr duas vezes (versão guardada e depois a do servidor): manter o que já foi escolhido
+  const previous = { form: sel.value, bar: barSel.value };
   sel.innerHTML = '';
   barSel.innerHTML = `<option value="" disabled selected>${translateText('Selecione uma unidade')}</option>`;
   const visibleRooms = (allRooms || []).filter(room => ['T2', 'T3'].includes((room.type || '').toUpperCase()));
@@ -818,6 +849,8 @@ function populateRoomSelect() {
     sel.innerHTML += `<option value="${r.id}" data-price="${r.pricePerNight}" data-name="${name}" data-capacity="${getRoomMaxGuests(r)}">${name} — €${new Intl.NumberFormat(currentLanguage).format(r.pricePerNight)}/${translateText('noite')}</option>`;
     barSel.innerHTML += `<option value="${r.id}" data-capacity="${getRoomMaxGuests(r)}">${name}</option>`;
   });
+  if (previous.form && sel.querySelector(`option[value="${previous.form}"]`)) sel.value = previous.form;
+  if (previous.bar && barSel.querySelector(`option[value="${previous.bar}"]`)) barSel.value = previous.bar;
   syncGuestOptions('bar-room', 'bar-guests');
   syncAgeGroupOptions();
   updateBookingPolicyHint();
@@ -1860,7 +1893,7 @@ function renderReviews() {
 
 async function loadReviews() {
   try {
-    const res = await fetchWithRetry(`${API}/reviews`);
+    const res = await fetchWithRetry(`${API}/reviews`, {}, ROOMS_RETRY_DELAYS_MS);
     const data = await res.json();
     if (!res.ok || !data.reviews?.length) return;
     publishedReviews = data.reviews;
