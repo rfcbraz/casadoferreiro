@@ -1769,22 +1769,26 @@ function reviewStars(value) {
   const full = Math.round(value);
   return `<span class="review-stars-display" aria-label="${value} / 5">${'★'.repeat(full)}<span class="off">${'★'.repeat(5 - full)}</span></span>`;
 }
-// Carrossel das avaliações: setas, pontos por grupo e arrastar no telemóvel (sem avanço automático)
+// Carrossel das avaliações: setas, pontos por grupo e arrastar no telemóvel (sem avanço automático).
+// Preparado uma vez; refresh() volta a contar os cartões quando o filtro muda.
+let reviewsCarousel = null;
 function setupReviewsCarousel(track) {
   const prev = document.getElementById('reviews-prev');
   const next = document.getElementById('reviews-next');
   const dots = document.getElementById('reviews-dots');
-  const items = [...track.children];
+  const items = () => [...track.children];
   const perView = () => Number(getComputedStyle(track).getPropertyValue('--per-view')) || 1;
-  const pageCount = () => Math.max(1, Math.ceil(items.length / perView()));
+  const pageCount = () => Math.max(1, Math.ceil(items().length / perView()));
   const currentPage = () => {
-    const step = items[1] ? items[1].offsetLeft - items[0].offsetLeft : track.clientWidth;
+    const list = items();
+    const step = list[1] ? list[1].offsetLeft - list[0].offsetLeft : track.clientWidth;
     const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 4;
     return atEnd ? pageCount() - 1 : Math.round(track.scrollLeft / (step * perView()));
   };
   const goTo = page => {
-    const target = items[Math.min(items.length - 1, Math.max(0, page) * perView())];
-    if (target) track.scrollTo({ left: target.offsetLeft - items[0].offsetLeft, behavior: 'smooth' });
+    const list = items();
+    const target = list[Math.min(list.length - 1, Math.max(0, page) * perView())];
+    if (target) track.scrollTo({ left: target.offsetLeft - list[0].offsetLeft, behavior: 'smooth' });
   };
   const render = () => {
     const pages = pageCount();
@@ -1803,39 +1807,57 @@ function setupReviewsCarousel(track) {
   next.onclick = () => goTo(currentPage() + 1);
   track.addEventListener('scroll', () => requestAnimationFrame(render), { passive: true });
   window.addEventListener('resize', render);
-
   track.addEventListener('keydown', event => {
     if (event.key === 'ArrowRight') { goTo(currentPage() + 1); event.preventDefault(); }
     if (event.key === 'ArrowLeft') { goTo(currentPage() - 1); event.preventDefault(); }
   });
   render();
+  return { refresh() { track.scrollTo({ left: 0 }); dots.innerHTML = ''; render(); } };
+}
+
+// Avaliações publicadas, com filtro por casa (Todas / T2 / T3)
+let publishedReviews = [];
+let reviewsRoomFilter = null;
+const formatRating = (value, digits) => new Intl.NumberFormat(currentLanguage, { minimumFractionDigits: digits, maximumFractionDigits: 1 }).format(value);
+const ratingAverage = list => list.reduce((sum, review) => sum + review.rating, 0) / list.length;
+
+function renderReviews() {
+  const list = reviewsRoomFilter ? publishedReviews.filter(review => review.roomId === reviewsRoomFilter) : publishedReviews;
+  const rooms = [...new Map(publishedReviews.map(review => [review.roomId, review.roomType])).entries()];
+  const filterButton = (roomId, label, reviews) => `<button type="button" class="reviews-room${reviewsRoomFilter === roomId ? ' active' : ''}" data-room="${roomId || ''}" aria-pressed="${reviewsRoomFilter === roomId}">${escapeReviewText(label)} · ${formatRating(ratingAverage(reviews), 0)} ★</button>`;
+  const filters = rooms.length > 1
+    ? `<div class="reviews-filters" role="group" aria-label="${translateText('Filtrar por alojamento')}">${filterButton(null, translateText('Todas'), publishedReviews)}${rooms.map(([roomId, type]) => filterButton(roomId, type, publishedReviews.filter(review => review.roomId === roomId))).join('')}</div>`
+    : '';
+  document.getElementById('reviews-summary').innerHTML = `
+    <div class="reviews-average"><span class="reviews-average-num">${formatRating(ratingAverage(list), 1)}</span>${reviewStars(ratingAverage(list))}</div>
+    <span class="reviews-count">${list.length} ${translateText(list.length === 1 ? 'avaliação' : 'avaliações')}</span>
+    ${filters}`;
+  document.querySelectorAll('.reviews-filters button').forEach(button => button.addEventListener('click', () => {
+    reviewsRoomFilter = button.dataset.room || null;
+    renderReviews();
+  }));
+
+  const month = value => value ? new Date(`${value}-01T00:00:00Z`).toLocaleDateString(currentLanguage, { month: 'long', year: 'numeric', timeZone: 'UTC' }) : '';
+  const grid = document.getElementById('reviews-grid');
+  grid.innerHTML = list.map(review => `
+    <article class="review-item">
+      ${reviewStars(review.rating)}
+      ${review.comment ? `<p class="review-item-comment">${escapeReviewText(review.comment)}</p>` : ''}
+      ${review.ownerReply ? `<div class="review-item-reply"><strong>${translateText('Resposta da Casa do Ferreiro')}</strong>${escapeReviewText(review.ownerReply)}</div>` : ''}
+      <div class="review-item-meta"><strong>${escapeReviewText(review.displayName)}</strong> · ${escapeReviewText(review.roomName)} · ${escapeReviewText(month(review.stayMonth))}</div>
+    </article>`).join('');
+  if (reviewsCarousel) reviewsCarousel.refresh();
+  else reviewsCarousel = setupReviewsCarousel(grid);
 }
 
 async function loadReviews() {
   try {
     const res = await fetchWithRetry(`${API}/reviews`);
     const data = await res.json();
-    if (!res.ok || !data.summary?.count) return;
-    const average = new Intl.NumberFormat(currentLanguage, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(data.summary.average);
-    const roomChips = Object.entries(data.summary.rooms).map(([roomId, room]) => {
-      const name = data.reviews.find(review => review.roomId === roomId)?.roomType || '';
-      return `<span class="reviews-room">${escapeReviewText(name)} · ${new Intl.NumberFormat(currentLanguage, { maximumFractionDigits: 1 }).format(room.average)} ★</span>`;
-    }).join('');
-    document.getElementById('reviews-summary').innerHTML = `
-      <div class="reviews-average"><span class="reviews-average-num">${average}</span>${reviewStars(data.summary.average)}</div>
-      <span class="reviews-count">${data.summary.count} ${translateText(data.summary.count === 1 ? 'avaliação' : 'avaliações')}</span>
-      ${Object.keys(data.summary.rooms).length > 1 ? roomChips : ''}`;
-    const month = value => value ? new Date(`${value}-01T00:00:00Z`).toLocaleDateString(currentLanguage, { month: 'long', year: 'numeric', timeZone: 'UTC' }) : '';
-    const grid = document.getElementById('reviews-grid');
-    grid.innerHTML = data.reviews.map(review => `
-      <article class="review-item">
-        ${reviewStars(review.rating)}
-        ${review.comment ? `<p class="review-item-comment">${escapeReviewText(review.comment)}</p>` : ''}
-        ${review.ownerReply ? `<div class="review-item-reply"><strong>${translateText('Resposta da Casa do Ferreiro')}</strong>${escapeReviewText(review.ownerReply)}</div>` : ''}
-        <div class="review-item-meta"><strong>${escapeReviewText(review.displayName)}</strong> · ${escapeReviewText(review.roomName)} · ${escapeReviewText(month(review.stayMonth))}</div>
-      </article>`).join('');
+    if (!res.ok || !data.reviews?.length) return;
+    publishedReviews = data.reviews;
     document.getElementById('reviews').hidden = false;
-    setupReviewsCarousel(grid);
+    renderReviews();
   } catch (err) {
     console.error('Erro ao carregar avaliações:', err);
   }

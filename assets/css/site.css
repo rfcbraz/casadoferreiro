@@ -372,7 +372,10 @@ footer{background:var(--dark);padding:4rem 3rem 2rem}
 .reviews-average{display:flex;align-items:baseline;gap:.75rem}
 .reviews-average-num{font-family:'Cormorant Garamond',serif;font-size:3.5rem;font-weight:300;line-height:1;color:var(--dark)}
 .reviews-count{font-size:.85rem;color:var(--muted)}
-.reviews-room{font-size:.8rem;color:var(--earth);background:var(--white);border:1px solid var(--warm);border-radius:999px;padding:.35rem .9rem}
+.reviews-filters{display:flex;flex-wrap:wrap;gap:.5rem}
+.reviews-room{font-family:'Jost',sans-serif;font-size:.8rem;color:var(--earth);background:var(--white);border:1px solid var(--warm);border-radius:999px;padding:.4rem 1rem;cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+.reviews-room:hover{border-color:var(--accent);color:var(--accent)}
+.reviews-room.active{background:var(--dark);border-color:var(--dark);color:#fff}
 .review-stars-display{color:var(--accent);letter-spacing:.1em;font-size:1rem}
 .review-stars-display .off{color:var(--warm)}
 /* Carrossel: 3 por vez no computador, 2 no tablet, 1 no telemóvel */
