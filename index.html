@@ -207,8 +207,12 @@
     <div class="section-eyebrow animated-section-eyebrow"><span class="section-eyebrow-text">Avaliações</span></div>
     <h2 class="animated-section-title">A opinião dos<br><em>nossos hóspedes</em></h2>
     <div class="reviews-summary" id="reviews-summary"></div>
-    <div class="reviews-grid" id="reviews-grid"></div>
-    <button class="reviews-more" id="reviews-more" type="button" hidden>Ver mais avaliações</button>
+    <div class="reviews-carousel" id="reviews-carousel">
+      <button class="reviews-nav reviews-prev" id="reviews-prev" type="button" aria-label="Avaliações anteriores">‹</button>
+      <div class="reviews-track" id="reviews-grid" tabindex="0" aria-label="Avaliações dos hóspedes"></div>
+      <button class="reviews-nav reviews-next" id="reviews-next" type="button" aria-label="Avaliações seguintes">›</button>
+    </div>
+    <div class="reviews-dots" id="reviews-dots"></div>
   </div>
 </section>
 

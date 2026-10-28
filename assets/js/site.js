@@ -1762,7 +1762,6 @@ loadRooms();
 loadReviews();
 
 // ── Avaliações publicadas (secção escondida enquanto não houver nenhuma) ──
-const REVIEWS_FIRST_PAGE = 6;
 function escapeReviewText(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
@@ -1770,6 +1769,48 @@ function reviewStars(value) {
   const full = Math.round(value);
   return `<span class="review-stars-display" aria-label="${value} / 5">${'★'.repeat(full)}<span class="off">${'★'.repeat(5 - full)}</span></span>`;
 }
+// Carrossel das avaliações: setas, pontos por grupo e arrastar no telemóvel (sem avanço automático)
+function setupReviewsCarousel(track) {
+  const prev = document.getElementById('reviews-prev');
+  const next = document.getElementById('reviews-next');
+  const dots = document.getElementById('reviews-dots');
+  const items = [...track.children];
+  const perView = () => Number(getComputedStyle(track).getPropertyValue('--per-view')) || 1;
+  const pageCount = () => Math.max(1, Math.ceil(items.length / perView()));
+  const currentPage = () => {
+    const step = items[1] ? items[1].offsetLeft - items[0].offsetLeft : track.clientWidth;
+    const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 4;
+    return atEnd ? pageCount() - 1 : Math.round(track.scrollLeft / (step * perView()));
+  };
+  const goTo = page => {
+    const target = items[Math.min(items.length - 1, Math.max(0, page) * perView())];
+    if (target) track.scrollTo({ left: target.offsetLeft - items[0].offsetLeft, behavior: 'smooth' });
+  };
+  const render = () => {
+    const pages = pageCount();
+    const page = currentPage();
+    prev.hidden = next.hidden = pages <= 1;
+    prev.disabled = page === 0;
+    next.disabled = page >= pages - 1;
+    if (dots.children.length !== pages) {
+      dots.innerHTML = pages <= 1 ? '' : Array.from({ length: pages }, (_, index) =>
+        `<button type="button" aria-label="${translateTemplate('Grupo {{n}} de {{total}}', { n: index + 1, total: pages })}"></button>`).join('');
+      [...dots.children].forEach((dot, index) => dot.addEventListener('click', () => goTo(index)));
+    }
+    [...dots.children].forEach((dot, index) => dot.classList.toggle('active', index === page));
+  };
+  prev.onclick = () => goTo(currentPage() - 1);
+  next.onclick = () => goTo(currentPage() + 1);
+  track.addEventListener('scroll', () => requestAnimationFrame(render), { passive: true });
+  window.addEventListener('resize', render);
+
+  track.addEventListener('keydown', event => {
+    if (event.key === 'ArrowRight') { goTo(currentPage() + 1); event.preventDefault(); }
+    if (event.key === 'ArrowLeft') { goTo(currentPage() - 1); event.preventDefault(); }
+  });
+  render();
+}
+
 async function loadReviews() {
   try {
     const res = await fetchWithRetry(`${API}/reviews`);
@@ -1786,17 +1827,15 @@ async function loadReviews() {
       ${Object.keys(data.summary.rooms).length > 1 ? roomChips : ''}`;
     const month = value => value ? new Date(`${value}-01T00:00:00Z`).toLocaleDateString(currentLanguage, { month: 'long', year: 'numeric', timeZone: 'UTC' }) : '';
     const grid = document.getElementById('reviews-grid');
-    grid.innerHTML = data.reviews.map((review, index) => `
-      <article class="review-item"${index >= REVIEWS_FIRST_PAGE ? ' hidden' : ''}>
+    grid.innerHTML = data.reviews.map(review => `
+      <article class="review-item">
         ${reviewStars(review.rating)}
         ${review.comment ? `<p class="review-item-comment">${escapeReviewText(review.comment)}</p>` : ''}
         ${review.ownerReply ? `<div class="review-item-reply"><strong>${translateText('Resposta da Casa do Ferreiro')}</strong>${escapeReviewText(review.ownerReply)}</div>` : ''}
         <div class="review-item-meta"><strong>${escapeReviewText(review.displayName)}</strong> · ${escapeReviewText(review.roomName)} · ${escapeReviewText(month(review.stayMonth))}</div>
       </article>`).join('');
-    const more = document.getElementById('reviews-more');
-    more.hidden = data.reviews.length <= REVIEWS_FIRST_PAGE;
-    more.onclick = () => { grid.querySelectorAll('.review-item[hidden]').forEach(item => { item.hidden = false; }); more.hidden = true; };
     document.getElementById('reviews').hidden = false;
+    setupReviewsCarousel(grid);
   } catch (err) {
     console.error('Erro ao carregar avaliações:', err);
   }
