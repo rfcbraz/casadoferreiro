@@ -1,5 +1,8 @@
 // Casa do Ferreiro — painel de gestão (depois de common.js)
 // ── Admin panel ───────────────────────────────────────────
+// O GitHub Pages não deixa proibir que o painel seja aberto dentro de outra página (clickjacking):
+// se estiver dentro de uma moldura, não mostra nada
+if (window.top !== window.self) document.documentElement.style.display = 'none';
 const ADMIN_TOKEN_KEY = 'casadaserra-admin-token';
 let adminToken = sessionStorage.getItem(ADMIN_TOKEN_KEY);
 let adminReservationsFilter = null;
@@ -198,7 +201,7 @@ async function loadAdminReservations(statusFilter) {
     tbody.innerHTML = data.reservations.map(r => `
       <div class="admin-table-row">
         <div><div class="admin-guest-name">${escapeAdminHtml(r.contactName || r.guest.name)}</div><div class="admin-guest-email">${escapeAdminHtml(r.guest.email)}</div><div class="admin-ref">#${r.id.slice(0, 8).toUpperCase()}</div></div>
-        <div><span class="admin-room-badge">${r.room.name}</span></div>
+        <div><span class="admin-room-badge">${escapeAdminHtml(r.room.name)}</span></div>
         <div style="font-size:.85rem">${new Date(r.checkIn).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})}</div>
         <div style="font-size:.85rem">${new Date(r.checkOut).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})}</div>
         <div><span class="admin-status ${statusClass[r.status]||'pending'}">${typeof statusLabel[r.status] === 'function' ? statusLabel[r.status](r) : statusLabel[r.status]||r.status}</span></div>
@@ -307,8 +310,8 @@ async function loadAdminRooms() {
 
     tbody.innerHTML = adminRooms.map(r => `
       <div class="admin-table-row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 2fr">
-        <div class="admin-guest-name">${r.name}</div>
-        <div><span class="admin-room-badge">${r.type}</span></div>
+        <div class="admin-guest-name">${escapeAdminHtml(r.name)}</div>
+        <div><span class="admin-room-badge">${escapeAdminHtml(r.type)}</span></div>
         <div style="font-size:.9rem;font-weight:500">€${r.pricePerNight}</div>
         <div style="font-size:.85rem">${r.capacity} pessoa${r.capacity > 1 ? 's' : ''}</div>
         <div><span class="admin-status ${r.isActive ? 'confirmed' : 'cancelled'}">${r.isActive ? 'Ativo' : 'Inativo'}</span></div>
@@ -319,7 +322,7 @@ async function loadAdminRooms() {
       </div>`).join('');
   } catch(err) {
     console.error('Erro quartos:', err);
-    tbody.innerHTML = `<div style="padding:2rem;color:#dc2626;font-size:.85rem">${err.message || 'Não foi possível carregar os quartos.'}</div>`;
+    tbody.innerHTML = `<div style="padding:2rem;color:#dc2626;font-size:.85rem">${escapeAdminHtml(err.message || 'Não foi possível carregar os quartos.')}</div>`;
   }
 }
 

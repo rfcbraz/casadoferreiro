@@ -48,7 +48,7 @@ function hasValidAdminToken(req) {
   const header = req.headers.authorization || '';
   if (!header.startsWith('Bearer ') || !process.env.JWT_SECRET) return false;
   try {
-    jwt.verify(header.slice(7), process.env.JWT_SECRET);
+    jwt.verify(header.slice(7), process.env.JWT_SECRET, { algorithms: ['HS256'] });
     return true;
   } catch {
     return false;

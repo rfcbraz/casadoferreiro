@@ -9,6 +9,10 @@ const { STAY_STATUSES, EXTERNAL_SOURCES, monthRange, stayNights, monthRevenue, m
 const { CRIBS_TOTAL_KEY, getCribsTotal, loadCribRanges, cribsUsedByNight, eachNight, checkCribs, cribsError } = require('../lib/cribs');
 const router = express.Router();
 
+// Hash de uma password aleatória: com um email que não existe o login demora o mesmo tempo,
+// para não revelar quais emails têm conta
+const DUMMY_HASH = bcrypt.hashSync(require('crypto').randomBytes(16).toString('hex'), 12);
+
 // POST /api/admin/login
 router.post('/login', async (req, res, next) => {
   try {
@@ -23,10 +27,8 @@ router.post('/login', async (req, res, next) => {
     }
 
     const admin = await prisma.admin.findUnique({ where: { email } });
-    if (!admin) return res.status(401).json({ error: 'Credenciais inválidas.' });
-
-    const valid = await bcrypt.compare(password, admin.password);
-    if (!valid) return res.status(401).json({ error: 'Credenciais inválidas.' });
+    const valid = await bcrypt.compare(password, admin ? admin.password : DUMMY_HASH);
+    if (!admin || !valid) return res.status(401).json({ error: 'Credenciais inválidas.' });
 
     if (!process.env.JWT_SECRET) {
       return res.status(500).json({ error: 'JWT_SECRET não está configurado no servidor.' });
