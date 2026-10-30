@@ -134,9 +134,10 @@ router.get('/room/:roomId', async (req, res, next) => {
       select: { checkIn: true, checkOut: true },
     });
 
+    // Sem o motivo: este pedido é público e o motivo de um bloqueio pode identificar alguém
     const blocked = await prisma.blockedDate.findMany({
       where: { roomId, date: { gte: startOfMonth, lte: endOfMonth } },
-      select: { date: true, reason: true, source: true },
+      select: { date: true, source: true },
     });
 
     // Expandir reservas em noites individuais (dentro do período pedido)
@@ -156,7 +157,6 @@ router.get('/room/:roomId', async (req, res, next) => {
       occupiedDates: [...occupiedDates].sort(),
       blockedDates: blocked.map(b => ({
         date: b.date.toISOString().split('T')[0],
-        reason: b.reason,
         source: b.source, // MANUAL fecha o dia inteiro; BOOKING_COM/AIRBNB só a noite
       })),
     });
