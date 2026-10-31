@@ -927,13 +927,21 @@ function syncAgeGroupOptions() {
   const room = allRooms.find(item => item.id === document.getElementById('f-room').value);
   const maxGuests = room ? getRoomMaxGuests(room) : Math.max(8, ...allRooms.map(getRoomMaxGuests));
   const party = getBookingParty();
-  const limits = { adults: [1, maxGuests], teens: [0, maxGuests - 1], children: [0, maxGuests - 1], infants: [0, MAX_INFANTS] };
+  // Se não couberem todos, mantêm-se primeiro os adultos, depois os jovens e por fim as crianças
+  let left = maxGuests;
+  const counted = {};
+  ['adults', 'teens', 'children'].forEach(group => {
+    counted[group] = Math.min(Math.max(party[group], group === 'adults' ? 1 : 0), left);
+    left -= counted[group];
+  });
+  counted.infants = Math.min(party.infants, MAX_INFANTS);
+  // Cada lista só oferece o que ainda cabe na unidade com as outras idades escolhidas (bebés não contam)
   Object.entries(AGE_GROUP_FIELDS).forEach(([group, id]) => {
-    const [min, max] = limits[group];
+    const min = group === 'adults' ? 1 : 0;
+    const max = group === 'infants' ? MAX_INFANTS : counted[group] + left;
     const select = document.getElementById(id);
-    const value = Math.min(Math.max(party[group], min), max);
     select.innerHTML = Array.from({ length: max - min + 1 }, (_, index) => `<option value="${min + index}">${min + index}</option>`).join('');
-    select.value = String(value);
+    select.value = String(counted[group]);
   });
   updateGuestLimitHint();
 }
@@ -1576,7 +1584,7 @@ document.getElementById('f-checkin').addEventListener('change', () => {
 });
 document.getElementById('f-checkout').addEventListener('change', updateSummary);
 Object.values(AGE_GROUP_FIELDS).forEach(id => document.getElementById(id).addEventListener('change', () => {
-  updateGuestLimitHint();
+  syncAgeGroupOptions(); // recalcula o máximo das outras idades
   updateSummary();
 }));
 document.getElementById('f-cribs').addEventListener('change', () => {
