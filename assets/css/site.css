@@ -134,9 +134,8 @@ h2 em{font-style:italic;color:var(--accent)}
 .cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:.8rem;cursor:pointer;border-radius:2px;transition:all .15s;color:rgba(255,255,255,.7);border:1px solid transparent;position:relative}
 /* Estadia a escolher com o rato: mais clara do que a escolhida */
 .cal-day.preview:not(.in-range):not(.selected){background:rgba(201,137,58,.35);color:#fff;border-color:transparent}
-.cal-tip{position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);background:#14100c;color:#fff;font-size:.7rem;white-space:nowrap;padding:.4rem .65rem;border-radius:4px;pointer-events:none;z-index:2;box-shadow:0 4px 12px rgba(0,0,0,.35);animation:cal-tip 4s forwards}
+.cal-tip{position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);background:#14100c;color:#fff;font-size:.7rem;white-space:nowrap;padding:.4rem .65rem;border-radius:4px;pointer-events:none;z-index:2;box-shadow:0 4px 12px rgba(0,0,0,.35)}
 .cal-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#14100c}
-@keyframes cal-tip{0%,85%{opacity:1}100%{opacity:0;visibility:hidden}}
 .cal-range{margin-top:1rem;font-size:.85rem;color:var(--white);text-align:center;min-height:1.3em}
 .cal-day:hover:not(.unavail):not(.empty){background:rgba(201,137,58,.2);border-color:var(--accent);color:#fff}
 .cal-day.today{border-color:var(--accent2);color:var(--accent2)}

@@ -397,8 +397,6 @@ document.getElementById('f-checkin').min=tomorrowDateString;
 updateBarMinimumCheckoutDate();
 
 let calYear=Number(todayDateString.slice(0,4)),calMonth=Number(todayDateString.slice(5,7))-1,selStart=null,selEnd=null;
-// Saída posta automaticamente com a estadia mínima ao clicar na entrada; o clique seguinte pode mudá-la
-let selEndAuto=false;
 let selectedAvailabilityRoomId = null;
 let availableRoomIds = null;
 let availabilityRequestId = 0;
@@ -410,7 +408,7 @@ function renderCal(){
   const months=document.getElementById('cal-months');
   const minimumCheckInDate = getMinimumCheckInDate();
   const today = getPortugalDateString();
-  const choosingCheckout = selStart && (!selEnd || selEndAuto);
+  const choosingCheckout = selStart && !selEnd;
   const dayNames = Array.from({ length: 7 }, (_, index) =>
     new Intl.DateTimeFormat(currentLanguage, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2023, 0, 1 + index))));
   months.replaceChildren(...[0, 1].map(offset => {
@@ -437,8 +435,8 @@ function renderCal(){
       if (dateStr === today) el.classList.add('today');
       el.dataset.dragDate = dateStr;
       if (isSelectable) { el.dataset.date = dateStr; el.onclick = () => selectDay(dateStr); }
-      // Aviso por cima da entrada acabada de escolher (desaparece sozinho)
-      if (dateStr === selStart && selEndAuto) {
+      // Aviso por cima da entrada enquanto não for escolhida a saída
+      if (dateStr === selStart && !selEnd) {
         const tip = document.createElement('span');
         tip.className = 'cal-tip';
         tip.textContent = translateTemplate('Mínimo de {{nights}} noites', { nights: MINIMUM_STAY_NIGHTS });
@@ -471,9 +469,7 @@ function updateCalendarHint() {
     ? 'Escolha a data de entrada no calendário.'
     : !selEnd
       ? 'Escolha a data de saída. Para mudar a entrada, clique novamente nela.'
-      : selEndAuto
-        ? 'Estadia mínima de 2 noites já marcada: pode escolher o alojamento ou clicar noutra data de saída.'
-        : 'Para escolher outras datas, clique numa nova data de entrada.');
+      : 'Para escolher outras datas, clique numa nova data de entrada.');
 }
 
 // selStart/selEnd guardam datas completas (YYYY-MM-DD) para permitir estadias entre meses
@@ -490,7 +486,7 @@ function nightsBetween(start, end) {
 
 // Com a entrada escolhida, passar o rato por um dia de saída possível mostra a estadia numa cor mais clara
 function previewCalHover(day) {
-  const choosingCheckout = selStart && (!selEnd || selEndAuto);
+  const choosingCheckout = selStart && !selEnd;
   const target = choosingCheckout && day && day > selStart && isValidCheckOut(selStart, day) ? day : null;
   document.querySelectorAll('#cal-months .cal-day').forEach(el => {
     const date = el.dataset.dragDate;
@@ -529,13 +525,13 @@ document.addEventListener('pointerup', () => {
   const { start, end } = calDrag;
   calDrag = null;
   if (start === end) return; // clique simples: tratado pelo onclick do dia
-  selStart = null; selEnd = null; selEndAuto = false;
+  selStart = null; selEnd = null;
   selectDay(start);
   selectDay(end);
 });
 
 function clearCalendarSelection() {
-  selStart = null; selEnd = null; selEndAuto = false;
+  selStart = null; selEnd = null;
   ['bar-checkin', 'bar-checkout', 'f-checkin', 'f-checkout'].forEach(id => { document.getElementById(id).value = ''; });
   availabilityRequestId++;
   availableRoomIds = null; availabilityQuotes = new Map();
@@ -545,7 +541,7 @@ function clearCalendarSelection() {
   updateAvailabilitySummary();
 }
 function selectDay(dateStr){
-  const choosingCheckout = selStart && (!selEnd || selEndAuto);
+  const choosingCheckout = selStart && !selEnd;
   if (choosingCheckout && dateStr === selStart) { clearCalendarSelection(); return; }
   if (dateStr < getMinimumCheckInDate()) {
     showToast('Essa data de entrada já não está disponível. Reservas para o próprio dia são aceites até às 22:00.');
@@ -555,15 +551,24 @@ function selectDay(dateStr){
     showToast(`A estadia mínima é de ${MINIMUM_STAY_NIGHTS} noites consecutivas.`);
     return;
   }
-  if(choosingCheckout && dateStr>selStart){selEnd=dateStr;selEndAuto=false;}
-  else{
-    // Nova entrada: a saída fica logo com a estadia mínima, para se poder escolher o alojamento
-    selStart=dateStr;
-    selEnd=shiftDateString(dateStr, MINIMUM_STAY_NIGHTS);
-    selEndAuto=true;
-  }
+  if(choosingCheckout && dateStr>selStart){selEnd=dateStr;}
+  else{selStart=dateStr;selEnd=null;}
   renderCal(); // atualiza os dias que podem ser dia de saída
-  applyCalendarSelection();
+  if (selEnd) applyCalendarSelection();
+  else startCalendarSelection();
+}
+
+// Só com a entrada escolhida: limpa a saída e a disponibilidade até ser escolhida a saída
+function startCalendarSelection() {
+  ['bar-checkin', 'f-checkin'].forEach(id => { document.getElementById(id).value = selStart; });
+  ['bar-checkout', 'f-checkout'].forEach(id => { document.getElementById(id).value = ''; });
+  updateBarMinimumCheckoutDate();
+  updateMinimumCheckoutDate();
+  availabilityRequestId++;
+  availableRoomIds = null; availabilityQuotes = new Map();
+  updateSummary();
+  renderAvailRooms(allRooms);
+  updateAvailabilitySummary();
 }
 
 // Passa as datas escolhidas para a barra e o formulário e pergunta ao servidor que casas estão livres
@@ -1112,7 +1117,7 @@ function openBookingFromBar() {
     ['f-teens', 'f-children', 'f-infants'].forEach(id => { document.getElementById(id).value = '0'; });
     syncAgeGroupOptions();
   }
-  selStart = checkIn; selEnd = checkOut; selEndAuto = false;
+  selStart = checkIn; selEnd = checkOut;
   showCalendarMonth(checkIn);
   renderCal();
   applyCalendarSelection();
