@@ -397,6 +397,8 @@ document.getElementById('f-checkin').min=tomorrowDateString;
 updateBarMinimumCheckoutDate();
 
 let calYear=Number(todayDateString.slice(0,4)),calMonth=Number(todayDateString.slice(5,7))-1,selStart=null,selEnd=null;
+// Saída posta automaticamente com a estadia mínima ao clicar na entrada; o clique seguinte pode mudá-la
+let selEndAuto=false;
 // Noites ocupadas por casa (próximos 18 meses), para o calendário funcionar em qualquer mês
 const CALENDAR_RANGE_DAYS = 548;
 const roomOccupancy = new Map();
@@ -423,7 +425,7 @@ function renderCal(){
     const el=document.createElement('div');el.className='cal-day';el.textContent=d;
     // A escolher a saída: só dias depois da entrada com a estadia mínima e sem noites ocupadas pelo meio.
     // Caso contrário: só dias em que é possível entrar (alguma casa livre durante a estadia mínima).
-    const choosingCheckout = selStart && !selEnd;
+    const choosingCheckout = selStart && (!selEnd || selEndAuto);
     let isSelectable;
     if (dateStr === selStart) isSelectable = true;
     else if (choosingCheckout && dateStr > selStart) isSelectable = isValidCheckOut(selStart, dateStr);
@@ -456,7 +458,9 @@ function updateCalendarHint() {
     ? 'Escolha a data de entrada. Só aparecem disponíveis os dias em que é possível reservar.'
     : !selEnd
       ? 'Escolha a data de saída. Para mudar a entrada, clique novamente nela.'
-      : 'Para escolher outras datas, clique numa nova data de entrada.');
+      : selEndAuto
+        ? 'Estadia mínima de 2 noites já marcada: pode escolher o alojamento ou clicar noutra data de saída.'
+        : 'Para escolher outras datas, clique numa nova data de entrada.');
 }
 
 // selStart/selEnd guardam datas completas (YYYY-MM-DD) para permitir estadias entre meses
@@ -524,7 +528,7 @@ document.addEventListener('pointerup', () => {
   const { start, end } = calDrag;
   calDrag = null;
   if (start === end) return; // clique simples: tratado pelo onclick do dia
-  selStart = null; selEnd = null;
+  selStart = null; selEnd = null; selEndAuto = false;
   selectDay(start);
   selectDay(end);
 });
@@ -559,7 +563,7 @@ async function loadPublicCalAvailability(roomId, refresh = true) {
   renderCal();
 }
 function clearCalendarSelection() {
-  selStart = null; selEnd = null;
+  selStart = null; selEnd = null; selEndAuto = false;
   ['bar-checkin', 'bar-checkout', 'f-checkin', 'f-checkout'].forEach(id => { document.getElementById(id).value = ''; });
   availabilityRequestId++;
   availableRoomIds = null; availabilityQuotes = new Map();
@@ -569,22 +573,28 @@ function clearCalendarSelection() {
   updateAvailabilitySummary();
 }
 function selectDay(dateStr){
-  if (selStart && !selEnd && dateStr === selStart) { clearCalendarSelection(); return; }
+  const choosingCheckout = selStart && (!selEnd || selEndAuto);
+  if (choosingCheckout && dateStr === selStart) { clearCalendarSelection(); return; }
   if (dateStr < getMinimumCheckInDate()) {
     showToast('Essa data de entrada já não está disponível. Reservas para o próprio dia são aceites até às 22:00.');
     return;
   }
-  if(selStart && !selEnd && dateStr > selStart && nightsBetween(selStart, dateStr) < MINIMUM_STAY_NIGHTS){
+  if(choosingCheckout && dateStr > selStart && nightsBetween(selStart, dateStr) < MINIMUM_STAY_NIGHTS){
     showToast(`A estadia mínima é de ${MINIMUM_STAY_NIGHTS} noites consecutivas.`);
     return;
   }
-  if(selStart && !selEnd && dateStr > selStart && !isRangeFree(selStart, dateStr, true)){
+  if(choosingCheckout && dateStr > selStart && !isRangeFree(selStart, dateStr, true)){
     showToast('Há noites ocupadas nesse período. Escolha outras datas.');
     return;
   }
-  if(!selStart||selEnd){selStart=dateStr;selEnd=null;}
-  else if(dateStr>selStart){selEnd=dateStr;}
-  else{selStart=dateStr;selEnd=null;}
+  if(choosingCheckout && dateStr>selStart){selEnd=dateStr;selEndAuto=false;}
+  else{
+    // Nova entrada: a saída fica logo com a estadia mínima (se possível), para se poder escolher o alojamento
+    const minimumEnd=shiftDateString(dateStr, MINIMUM_STAY_NIGHTS);
+    selStart=dateStr;
+    selEndAuto=isValidCheckOut(dateStr, minimumEnd);
+    selEnd=selEndAuto?minimumEnd:null;
+  }
   renderCal(); // atualiza os dias que podem ser dia de saída
 
   // Sincronizar datas com o formulário de reserva e barra de pesquisa (formato YYYY-MM-DD)
