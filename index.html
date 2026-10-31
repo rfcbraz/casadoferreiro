@@ -178,18 +178,14 @@
       <div>
         <div class="calendar-wrap">
           <div class="cal-header">
-            <button class="cal-nav" onclick="changeMonth(-1)">&#8249;</button>
-            <div class="cal-title" id="cal-title"></div>
-            <button class="cal-nav" onclick="changeMonth(1)">&#8250;</button>
+            <button class="cal-nav" id="cal-prev" type="button" aria-label="Mês anterior" onclick="changeMonth(-1)">&#8249;</button>
+            <button class="cal-nav" type="button" aria-label="Mês seguinte" onclick="changeMonth(1)">&#8250;</button>
           </div>
-          <div class="cal-days-header">
-            <div class="cal-day-name">Dom</div><div class="cal-day-name">Seg</div><div class="cal-day-name">Ter</div><div class="cal-day-name">Qua</div><div class="cal-day-name">Qui</div><div class="cal-day-name">Sex</div><div class="cal-day-name">Sáb</div>
-          </div>
-          <div class="cal-grid" id="cal-grid"></div>
+          <div class="cal-months" id="cal-months"></div>
+          <p class="cal-range" id="cal-range" aria-live="polite"></p>
           <div class="cal-legend">
             <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Selecionado</div>
-            <div class="legend-item"><div class="legend-dot" style="background:rgba(255,255,255,.7);opacity:.35"></div>Indisponível</div>
-            <div class="legend-item"><div class="legend-dot" style="background:rgba(255,255,255,.7)"></div>Disponível</div>
+            <div class="legend-item"><div class="legend-dot" style="background:rgba(201,137,58,.35)"></div>A escolher</div>
           </div>
           <p class="cal-hint" id="cal-hint" aria-live="polite"></p>
         </div>
@@ -333,12 +329,13 @@
         <small class="form-hint" id="phone-hint" aria-live="polite">Selecione o país e introduza o número.</small>
       </div>
       <div class="form-field"><label for="f-room">Unidade</label>
-        <select id="f-room">
+        <select id="f-room" disabled>
           <option value="">A carregar unidades...</option>
         </select>
+        <button type="button" class="form-link" onclick="changeStayFromForm()">Alterar datas ou alojamento</button>
       </div>
-      <div class="form-field"><label for="f-checkin">Check-in</label><input type="date" id="f-checkin"></div>
-      <div class="form-field"><label for="f-checkout">Check-out</label><input type="date" id="f-checkout"></div>
+      <div class="form-field"><label for="f-checkin">Check-in</label><input type="date" id="f-checkin" disabled></div>
+      <div class="form-field"><label for="f-checkout">Check-out</label><input type="date" id="f-checkout" disabled></div>
       <div class="form-field"><label for="f-arrival-time">Hora prevista de chegada</label><select id="f-arrival-time" required disabled><option value="">Selecione primeiro a unidade</option></select></div>
       <div class="form-field full"><label>Hóspedes por idade</label>
         <div class="age-groups">

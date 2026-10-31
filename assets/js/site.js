@@ -399,63 +399,76 @@ updateBarMinimumCheckoutDate();
 let calYear=Number(todayDateString.slice(0,4)),calMonth=Number(todayDateString.slice(5,7))-1,selStart=null,selEnd=null;
 // Saída posta automaticamente com a estadia mínima ao clicar na entrada; o clique seguinte pode mudá-la
 let selEndAuto=false;
-// Noites ocupadas por casa (próximos 18 meses), para o calendário funcionar em qualquer mês
-const CALENDAR_RANGE_DAYS = 548;
-const roomOccupancy = new Map();
-let calendarRoomId = null; // casa mostrada no calendário; null = todas as casas
 let selectedAvailabilityRoomId = null;
 let availableRoomIds = null;
 let availabilityRequestId = 0;
 let availabilityQuotes = new Map(); // roomId → orçamento das datas escolhidas (ocupação base)
 
+// Calendário de dois meses seguidos, como no Booking: as datas escolhem-se livremente
+// e a lista ao lado mostra que casas estão livres nessas datas
 function renderCal(){
-  const monthName = new Intl.DateTimeFormat(currentLanguage, { month: 'long' }).format(new Date(calYear, calMonth, 1));
-  document.getElementById('cal-title').textContent=monthName.charAt(0).toLocaleUpperCase(currentLanguage)+monthName.slice(1)+' '+calYear;
-  const grid=document.getElementById('cal-grid');grid.innerHTML='';
-  const first=new Date(calYear,calMonth,1).getDay();
-  const days=new Date(calYear,calMonth+1,0).getDate();
-  document.querySelectorAll('.cal-day-name').forEach((element, index) => {
-    const day = new Date(Date.UTC(2023, 0, 1 + index));
-    element.textContent = new Intl.DateTimeFormat(currentLanguage, { weekday: 'short', timeZone: 'UTC' }).format(day);
-  });
+  const months=document.getElementById('cal-months');
   const minimumCheckInDate = getMinimumCheckInDate();
-  for(let i=0;i<first;i++){const d=document.createElement('div');d.className='cal-day empty';grid.appendChild(d);}
-  for(let d=1;d<=days;d++){
-    const dateStr=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const el=document.createElement('div');el.className='cal-day';el.textContent=d;
-    // A escolher a saída: só dias depois da entrada com a estadia mínima e sem noites ocupadas pelo meio.
-    // Caso contrário: só dias em que é possível entrar (alguma casa livre durante a estadia mínima).
-    const choosingCheckout = selStart && (!selEnd || selEndAuto);
-    let isSelectable;
-    if (dateStr === selStart) isSelectable = true;
-    else if (choosingCheckout && dateStr > selStart) isSelectable = isValidCheckOut(selStart, dateStr);
-    else isSelectable = dateStr >= minimumCheckInDate && isValidCheckIn(dateStr);
-    // Saída e entrada no mesmo dia são permitidas: um dia em que começa outra reserva continua
-    // disponível como dia de saída (só as noites contam como ocupadas)
-    const isUnavail = !isSelectable;
-    if(isUnavail) el.classList.add('unavail');
-    // Dias que não se podem escolher ficam esbatidos (ocupados ou sem estadia mínima possível); os passados quase invisíveis
-    if(isUnavail && dateStr < minimumCheckInDate) el.classList.add('past');
-    if(dateStr===getPortugalDateString())el.classList.add('today');
-    el.dataset.dragDate=dateStr;
-    if(!isUnavail){el.dataset.date=dateStr;el.onclick=()=>selectDay(dateStr);}
-    grid.appendChild(el);
-  }
+  const today = getPortugalDateString();
+  const choosingCheckout = selStart && (!selEnd || selEndAuto);
+  const dayNames = Array.from({ length: 7 }, (_, index) =>
+    new Intl.DateTimeFormat(currentLanguage, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2023, 0, 1 + index))));
+  months.replaceChildren(...[0, 1].map(offset => {
+    const year = calYear + Math.floor((calMonth + offset) / 12);
+    const month = (calMonth + offset) % 12;
+    const monthName = new Intl.DateTimeFormat(currentLanguage, { month: 'long' }).format(new Date(year, month, 1));
+    const wrap = document.createElement('div');
+    wrap.className = 'cal-month';
+    wrap.innerHTML = `<div class="cal-title">${monthName.charAt(0).toLocaleUpperCase(currentLanguage) + monthName.slice(1)} ${year}</div>
+      <div class="cal-days-header">${dayNames.map(name => `<div class="cal-day-name">${name}</div>`).join('')}</div>
+      <div class="cal-grid"></div>`;
+    const grid = wrap.querySelector('.cal-grid');
+    const first = new Date(year, month, 1).getDay();
+    const days = new Date(year, month + 1, 0).getDate();
+    for (let i = 0; i < first; i++) { const d = document.createElement('div'); d.className = 'cal-day empty'; grid.appendChild(d); }
+    for (let d = 1; d <= days; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const el = document.createElement('div'); el.className = 'cal-day'; el.textContent = d;
+      // A escolher a saída: dias depois da entrada com a estadia mínima; caso contrário: qualquer dia a partir de hoje
+      const isSelectable = dateStr === selStart
+        || (choosingCheckout && dateStr > selStart ? isValidCheckOut(selStart, dateStr) : dateStr >= minimumCheckInDate);
+      if (!isSelectable) el.classList.add('unavail');
+      if (dateStr < minimumCheckInDate) el.classList.add('past');
+      if (dateStr === today) el.classList.add('today');
+      el.dataset.dragDate = dateStr;
+      if (isSelectable) { el.dataset.date = dateStr; el.onclick = () => selectDay(dateStr); }
+      // Aviso por cima da entrada acabada de escolher (desaparece sozinho)
+      if (dateStr === selStart && selEndAuto) {
+        const tip = document.createElement('span');
+        tip.className = 'cal-tip';
+        tip.textContent = translateTemplate('Mínimo de {{nights}} noites', { nights: MINIMUM_STAY_NIGHTS });
+        el.appendChild(tip);
+      }
+      grid.appendChild(el);
+    }
+    return wrap;
+  }));
+  // Estadia escolhida por extenso, por baixo do calendário
+  const range = document.getElementById('cal-range');
+  const longDate = date => new Intl.DateTimeFormat(currentLanguage, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+    .format(new Date(`${date}T00:00:00Z`));
+  range.textContent = selStart && selEnd
+    ? `${longDate(selStart)} – ${longDate(selEnd)} (${translateTemplate('{{nights}} noites', { nights: nightsBetween(selStart, selEnd) })})`
+    : '';
+  // Não recuar para antes do mês atual
+  document.getElementById('cal-prev').disabled = calYear * 12 + calMonth <= Number(today.slice(0, 4)) * 12 + Number(today.slice(5, 7)) - 1;
   highlightCalSelection();
   updateCalendarHint();
 }
 
-function isValidCheckIn(date) {
-  return isRangeFree(date, shiftDateString(date, MINIMUM_STAY_NIGHTS));
-}
 function isValidCheckOut(start, end) {
-  return nightsBetween(start, end) >= MINIMUM_STAY_NIGHTS && isRangeFree(start, end, true);
+  return nightsBetween(start, end) >= MINIMUM_STAY_NIGHTS;
 }
 function updateCalendarHint() {
   const hint = document.getElementById('cal-hint');
   if (!hint) return;
   hint.textContent = translateText(!selStart
-    ? 'Escolha a data de entrada. Só aparecem disponíveis os dias em que é possível reservar.'
+    ? 'Escolha a data de entrada no calendário.'
     : !selEnd
       ? 'Escolha a data de saída. Para mudar a entrada, clique novamente nela.'
       : selEndAuto
@@ -465,64 +478,52 @@ function updateCalendarHint() {
 
 // selStart/selEnd guardam datas completas (YYYY-MM-DD) para permitir estadias entre meses
 function highlightCalSelection(start = selStart, end = selEnd) {
-  document.querySelectorAll('#cal-grid .cal-day').forEach(el => {
+  document.querySelectorAll('#cal-months .cal-day').forEach(el => {
     const date = el.dataset.date || el.dataset.dragDate; // inclui dias não clicáveis dentro da estadia escolhida
     el.classList.toggle('selected', Boolean(date) && (date === start || date === end));
     el.classList.toggle('in-range', Boolean(date && start && end) && date > start && date < end);
-  });
-}
-function calendarRoomIds() {
-  if (calendarRoomId) return [calendarRoomId];
-  return (allRooms || []).filter(room => ['T2', 'T3'].includes((room.type || '').toUpperCase())).map(room => room.id);
-}
-// Uma noite está indisponível se todas as casas consideradas estiverem ocupadas
-function isNightOccupied(date) {
-  const ids = calendarRoomIds().filter(id => roomOccupancy.has(id));
-  return ids.length > 0 && ids.every(id => roomOccupancy.get(id).nights.has(date));
-}
-// Há pelo menos uma casa livre em todas as noites, da entrada (inclusive) à saída (exclusive).
-// Com isCheckOut, o dia de saída também não pode estar fechado no painel (bloqueio manual = dia inteiro).
-function isRangeFree(start, end, isCheckOut = false) {
-  const ids = calendarRoomIds().filter(id => roomOccupancy.has(id));
-  if (!ids.length) return true;
-  return ids.some(id => {
-    const { nights, closedDays } = roomOccupancy.get(id);
-    if (isCheckOut && closedDays.has(end)) return false;
-    for (let date = start; date < end; date = shiftDateString(date, 1)) {
-      if (nights.has(date)) return false;
-    }
-    return true;
   });
 }
 function nightsBetween(start, end) {
   return Math.round((new Date(`${end}T00:00:00Z`) - new Date(`${start}T00:00:00Z`)) / 86400000);
 }
 
+// Com a entrada escolhida, passar o rato por um dia de saída possível mostra a estadia numa cor mais clara
+function previewCalHover(day) {
+  const choosingCheckout = selStart && (!selEnd || selEndAuto);
+  const target = choosingCheckout && day && day > selStart && isValidCheckOut(selStart, day) ? day : null;
+  document.querySelectorAll('#cal-months .cal-day').forEach(el => {
+    const date = el.dataset.dragDate;
+    el.classList.toggle('preview', Boolean(target && date) && date > selStart && date <= target);
+  });
+}
+
 // Seleção por arrastar (rato/caneta): carregar no dia de entrada e largar no dia de saída.
 // Em ecrãs táteis mantém-se o toque em dois dias, para não bloquear o scroll da página.
 let calDrag = null;
 function calDayFromEvent(e) {
-  return e.target.closest?.('#cal-grid .cal-day')?.dataset.date || null;
+  return e.target.closest?.('#cal-months .cal-day')?.dataset.date || null;
 }
 function previewCalDrag() {
   const [a, b] = [calDrag.start, calDrag.end].sort();
   highlightCalSelection(a, b);
 }
-const calGridEl = document.getElementById('cal-grid');
-calGridEl.addEventListener('pointerdown', e => {
+const calMonthsEl = document.getElementById('cal-months');
+calMonthsEl.addEventListener('pointerdown', e => {
   if (e.pointerType === 'touch' || e.button !== 0) return;
   const day = calDayFromEvent(e);
-  if (!day || !isValidCheckIn(day)) return;
+  if (!day || day < getMinimumCheckInDate()) return;
   calDrag = { start: day, end: day };
 });
-calGridEl.addEventListener('pointerover', e => {
-  if (!calDrag) return;
-  const day = e.target.closest?.('#cal-grid .cal-day')?.dataset.date || e.target.closest?.('#cal-grid .cal-day')?.dataset.dragDate;
+calMonthsEl.addEventListener('pointerover', e => {
+  const day = e.target.closest?.('#cal-months .cal-day')?.dataset.dragDate;
+  if (!calDrag) { if (e.pointerType !== 'touch') previewCalHover(day); return; }
   // Só estende até dias que podem ser saída a partir do dia em que o arrasto começou
   if (!day || day === calDrag.end || day <= calDrag.start || !isValidCheckOut(calDrag.start, day)) return;
   calDrag.end = day;
   previewCalDrag();
 });
+calMonthsEl.addEventListener('pointerleave', () => previewCalHover(null));
 document.addEventListener('pointerup', () => {
   if (!calDrag) return;
   const { start, end } = calDrag;
@@ -533,35 +534,6 @@ document.addEventListener('pointerup', () => {
   selectDay(end);
 });
 
-// Carrega datas ocupadas para o quarto selecionado no mês atual
-async function fetchRoomOccupancy(roomId) {
-  const from = getPortugalDateString();
-  const to = shiftDateString(from, CALENDAR_RANGE_DAYS);
-  const res = await fetchWithRetry(`${API}/availability/room/${roomId}?from=${from}&to=${to}`);
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error);
-  // nights: noites ocupadas ou bloqueadas; closedDays: dias fechados no painel (nem entrada nem saída)
-  const blocked = data.blockedDates || [];
-  roomOccupancy.set(roomId, {
-    nights: new Set([...(data.occupiedDates || []), ...blocked.map(b => b.date)]),
-    closedDays: new Set(blocked.filter(b => !b.source || b.source === 'MANUAL').map(b => b.date)),
-  });
-}
-
-// Mostra no calendário a casa indicada (ou todas, com null). refresh=false reutiliza o que já foi carregado.
-let calAvailabilityRequestId = 0;
-async function loadPublicCalAvailability(roomId, refresh = true) {
-  const requestId = ++calAvailabilityRequestId;
-  calendarRoomId = roomId || null;
-  const ids = calendarRoomIds().filter(id => refresh || !roomOccupancy.has(id));
-  try {
-    await Promise.all(ids.map(fetchRoomOccupancy));
-  } catch(err) {
-    console.error('Erro calendário público:', err);
-  }
-  if (requestId !== calAvailabilityRequestId) return;
-  renderCal();
-}
 function clearCalendarSelection() {
   selStart = null; selEnd = null; selEndAuto = false;
   ['bar-checkin', 'bar-checkout', 'f-checkin', 'f-checkout'].forEach(id => { document.getElementById(id).value = ''; });
@@ -583,93 +555,75 @@ function selectDay(dateStr){
     showToast(`A estadia mínima é de ${MINIMUM_STAY_NIGHTS} noites consecutivas.`);
     return;
   }
-  if(choosingCheckout && dateStr > selStart && !isRangeFree(selStart, dateStr, true)){
-    showToast('Há noites ocupadas nesse período. Escolha outras datas.');
-    return;
-  }
   if(choosingCheckout && dateStr>selStart){selEnd=dateStr;selEndAuto=false;}
   else{
-    // Nova entrada: a saída fica logo com a estadia mínima (se possível), para se poder escolher o alojamento
-    const minimumEnd=shiftDateString(dateStr, MINIMUM_STAY_NIGHTS);
+    // Nova entrada: a saída fica logo com a estadia mínima, para se poder escolher o alojamento
     selStart=dateStr;
-    selEndAuto=isValidCheckOut(dateStr, minimumEnd);
-    selEnd=selEndAuto?minimumEnd:null;
+    selEnd=shiftDateString(dateStr, MINIMUM_STAY_NIGHTS);
+    selEndAuto=true;
   }
   renderCal(); // atualiza os dias que podem ser dia de saída
+  applyCalendarSelection();
+}
 
-  // Sincronizar datas com o formulário de reserva e barra de pesquisa (formato YYYY-MM-DD)
-  if(selStart) {
-    const ciStr = selStart;
-    document.getElementById('bar-checkin').value = ciStr;
-    document.getElementById('f-checkin').value = ciStr;
-    if (!selEnd) {
-      document.getElementById('bar-checkout').value = '';
-      document.getElementById('f-checkout').value = '';
-    }
-    updateBarMinimumCheckoutDate();
-    updateMinimumCheckoutDate();
-    if (!selEnd) {
-      availabilityRequestId++;
-      availableRoomIds = null; availabilityQuotes = new Map();
-      updateSummary();
-      renderAvailRooms(allRooms);
-      updateAvailabilitySummary();
-    }
-  }
-  if(selEnd) {
-    const ciStr = selStart;
-    const coStr = selEnd;
-    document.getElementById('bar-checkout').value = coStr;
-    document.getElementById('f-checkout').value = coStr;
-    updateSummary();
-    availableRoomIds = null; availabilityQuotes = new Map();
-    const requestId = ++availabilityRequestId;
-    updateAvailabilitySummary();
+// Passa as datas escolhidas para a barra e o formulário e pergunta ao servidor que casas estão livres
+function applyCalendarSelection() {
+  const ciStr = selStart;
+  const coStr = selEnd;
+  ['bar-checkin', 'f-checkin'].forEach(id => { document.getElementById(id).value = ciStr; });
+  ['bar-checkout', 'f-checkout'].forEach(id => { document.getElementById(id).value = coStr; });
+  updateBarMinimumCheckoutDate();
+  updateMinimumCheckoutDate();
+  updateSummary();
+  availableRoomIds = null; availabilityQuotes = new Map();
+  const requestId = ++availabilityRequestId;
+  updateAvailabilitySummary();
 
-    // Atualizar disponibilidade com as datas selecionadas
-    const list = document.getElementById('avail-rooms-list');
-    if (list) list.innerHTML = '<p style="color:var(--stone);font-size:.9rem;padding:1rem 0">A verificar disponibilidade...</p>';
-    fetch(`${API}/availability?checkIn=${ciStr}&checkOut=${coStr}`)
-      .then(async r => {
-        const data = await r.json().catch(() => ({}));
-        // Um erro do servidor (ex.: data inválida) não significa que as casas estejam ocupadas
-        if (!r.ok) throw new Error(data.error || 'Erro ao verificar disponibilidade.');
-        return data;
-      })
-      .then(data => {
-        if (requestId !== availabilityRequestId) return;
-        availableRoomIds = new Set((data.availableRooms || []).map(room => room.id));
-        availabilityQuotes = new Map((data.availableRooms || []).map(room => [room.id, room.quote]));
-        if (selectedAvailabilityRoomId && !availableRoomIds.has(selectedAvailabilityRoomId)) {
-          selectedAvailabilityRoomId = null;
-        }
-        renderAvailRooms(data.availableRooms, ciStr, coStr);
-        updateAvailabilitySummary();
-        document.getElementById('f-checkin').value = ciStr;
-        document.getElementById('f-checkout').value = coStr;
-      })
-      .catch(err => {
-        if (requestId !== availabilityRequestId) return;
-        console.error('Erro disponibilidade:', err);
-        if (list) {
-          const message = document.createElement('p');
-          message.style.cssText = 'color:var(--stone);font-size:.9rem;padding:1rem 0';
-          message.textContent = translateText(err.message || 'Erro ao verificar disponibilidade.');
-          list.replaceChildren(message);
-        }
-        availableRoomIds = new Set();
+  const list = document.getElementById('avail-rooms-list');
+  if (list) list.innerHTML = `<p style="color:var(--stone);font-size:.9rem;padding:1rem 0">${translateText('A verificar disponibilidade...')}</p>`;
+  fetch(`${API}/availability?checkIn=${ciStr}&checkOut=${coStr}`)
+    .then(async r => {
+      const data = await r.json().catch(() => ({}));
+      // Um erro do servidor (ex.: data inválida) não significa que as casas estejam ocupadas
+      if (!r.ok) throw new Error(data.error || 'Erro ao verificar disponibilidade.');
+      return data;
+    })
+    .then(data => {
+      if (requestId !== availabilityRequestId) return;
+      availableRoomIds = new Set((data.availableRooms || []).map(room => room.id));
+      availabilityQuotes = new Map((data.availableRooms || []).map(room => [room.id, room.quote]));
+      if (selectedAvailabilityRoomId && !availableRoomIds.has(selectedAvailabilityRoomId)) {
         selectedAvailabilityRoomId = null;
-        updateAvailabilitySummary();
-      });
-  }
+      }
+      renderAvailRooms(data.availableRooms, ciStr, coStr);
+      updateAvailabilitySummary();
+    })
+    .catch(err => {
+      if (requestId !== availabilityRequestId) return;
+      console.error('Erro disponibilidade:', err);
+      if (list) {
+        const message = document.createElement('p');
+        message.style.cssText = 'color:var(--stone);font-size:.9rem;padding:1rem 0';
+        message.textContent = translateText(err.message || 'Erro ao verificar disponibilidade.');
+        list.replaceChildren(message);
+      }
+      availableRoomIds = new Set();
+      selectedAvailabilityRoomId = null;
+      updateAvailabilitySummary();
+    });
+}
+
+// Mostra no calendário o mês da data indicada (no primeiro dos dois meses)
+function showCalendarMonth(dateStr) {
+  calYear = Number(dateStr.slice(0, 4));
+  calMonth = Number(dateStr.slice(5, 7)) - 1;
 }
 function changeMonth(dir){
   calMonth+=dir;
   if(calMonth>11){calMonth=0;calYear++;}
   if(calMonth<0){calMonth=11;calYear--;}
   // A seleção mantém-se ao mudar de mês, para permitir entrada num mês e saída noutro
-  const roomId = selectedAvailabilityRoomId || document.getElementById('f-room')?.value;
-  loadPublicCalAvailability(roomId, false);
+  renderCal();
 }
 
 // ── Unidades ──────────────────────────────────────────────
@@ -836,8 +790,6 @@ async function loadRooms() {
     if (!res.ok || !Array.isArray(rooms)) throw new Error(rooms?.error || `HTTP ${res.status}`);
     showRooms(rooms);
     try { localStorage.setItem(ROOMS_CACHE_KEY, JSON.stringify(rooms)); } catch {}
-    // Calendário começa com todas as casas: risca as noites em que nenhuma está livre
-    loadPublicCalAvailability(calendarRoomId);
   } catch(err) {
     console.error('Erro ao carregar quartos:', err);
     if (!shown) showToast(translateText('Não foi possível carregar as casas. Atualize a página dentro de momentos.'));
@@ -1074,9 +1026,7 @@ function updateAvailabilitySummary() {
 
 function selectAvailabilityRoom(roomId) {
   if (availableRoomIds && !availableRoomIds.has(roomId)) return;
-  const roomChanged = selectedAvailabilityRoomId !== roomId;
   selectedAvailabilityRoomId = roomId;
-  if (roomChanged) loadPublicCalAvailability(roomId);
   document.querySelectorAll('.avail-room[data-room-id]').forEach(card => {
     const selected = card.dataset.roomId === roomId;
     card.classList.toggle('is-selected', selected);
@@ -1145,37 +1095,28 @@ function renderAvailRooms(availableRooms, checkIn, checkOut) {
 }
 
 // ── Verificar disponibilidade pela barra ──────────────────
-async function openBookingFromBar() {
+// Leva as datas para o calendário; o alojamento escolhe-se na lista de disponibilidade
+// (a unidade da barra fica pré-escolhida se estiver livre)
+function openBookingFromBar() {
   const roomId = document.getElementById('bar-room').value;
   const checkIn = document.getElementById('bar-checkin').value;
   const checkOut = document.getElementById('bar-checkout').value;
-  if (!roomId) {
-    showToast('Selecione uma unidade para verificar a disponibilidade.');
-    return;
-  }
   const dateError = getBookingDateError(checkIn, checkOut);
   if (dateError) {
     showToast(dateError);
     return;
   }
-  document.getElementById('f-room').value = roomId;
-  document.getElementById('f-adults').value = document.getElementById('bar-guests').value;
-  ['f-teens', 'f-children', 'f-infants'].forEach(id => { document.getElementById(id).value = '0'; });
-  document.getElementById('f-checkin').value = checkIn;
-  document.getElementById('f-checkout').value = checkOut;
-  syncAgeGroupOptions();
-
-  try {
-    const res = await fetch(`${API}/availability?checkIn=${checkIn}&checkOut=${checkOut}`);
-    const data = await res.json();
-    if (!res.ok) {
-      showToast(translateText(data.error || 'Erro ao verificar disponibilidade.'));
-      return;
-    }
-    renderAvailRooms(data.availableRooms, checkIn, checkOut);
-  } catch(err) { console.error(err); }
-
-  openBooking();
+  if (roomId) {
+    selectedAvailabilityRoomId = roomId;
+    document.getElementById('f-adults').value = document.getElementById('bar-guests').value;
+    ['f-teens', 'f-children', 'f-infants'].forEach(id => { document.getElementById(id).value = '0'; });
+    syncAgeGroupOptions();
+  }
+  selStart = checkIn; selEnd = checkOut; selEndAuto = false;
+  showCalendarMonth(checkIn);
+  renderCal();
+  applyCalendarSelection();
+  document.getElementById('availability').scrollIntoView({ behavior: 'smooth' });
 }
 
 // ── Modal de detalhes do quarto ─────────────────────────
@@ -1497,10 +1438,16 @@ function openBooking() {
   updateSummary();
   return true;
 }
+// "Reservar" numa casa: leva ao calendário com essa casa escolhida (se estiver livre nas datas já escolhidas)
 function openBookingForRoom(value) {
   const room = allRooms.find(r => r.id === value || r.name === value || r.type === value);
-  if (room) document.getElementById('f-room').value = room.id;
-  openBooking();
+  if (room) selectAvailabilityRoom(room.id);
+  document.getElementById('availability').scrollIntoView({ behavior: 'smooth' });
+}
+// "Alterar datas ou alojamento" no formulário: volta ao calendário de disponibilidade
+function changeStayFromForm() {
+  closeBooking();
+  document.getElementById('availability').scrollIntoView({ behavior: 'smooth' });
 }
 function openBookingForRoomId(id) {
   document.getElementById('f-room').value = id;
@@ -1552,7 +1499,8 @@ function updateQuote(roomId, nights) {
   const room = allRooms.find(item => item.id === roomId);
   clearTimeout(quoteTimer);
   const requestId = ++quoteRequestId;
-  if (!roomId || nights <= 0 || (room && countPartyGuests(party) > getRoomMaxGuests(room))) {
+  // Sem datas (nights é NaN) não se pede preço ao servidor
+  if (!roomId || !(nights > 0) || (room && countPartyGuests(party) > getRoomMaxGuests(room))) {
     totalEl.textContent = '—';
     breakdownEl.textContent = '';
     promoEl.textContent = '';
@@ -1637,8 +1585,6 @@ document.getElementById('f-room').addEventListener('change', function() {
   updateArrivalTimeOptions();
   updateMinimumCheckoutDate();
   updateSummary();
-  // Atualiza calendário público com disponibilidade do quarto selecionado
-  loadPublicCalAvailability(this.value);
 });
 const phoneCountryDialCodes = `
 BD:880 BE:32 BF:226 BG:359 BA:387 BB:1246 WF:681 BL:590 BM:1441 BN:673 BO:591 BH:973 BI:257 BJ:229 BT:975 JM:1876 BW:267 WS:685 BQ:599 BR:55 BS:1242 JE:441534 BY:375 BZ:501 RU:7 RW:250 RS:381 TL:670 RE:262 TM:993 TJ:992 RO:40 TK:690 GW:245 GU:1671 GT:502 GR:30 GQ:240 GP:590 JP:81 GY:592 GG:441481 GF:594 GE:995 GD:1473 GB:44 GA:241 SV:503 GN:224 GM:220 GL:299 GI:350 GH:233 OM:968 TN:216 JO:962 HR:385 HT:509 HU:36 HK:852 HN:504 VE:58 PR:1787,1939 PS:970 PW:680 PT:351 SJ:47 PY:595 IQ:964 PA:507 PF:689 PG:675 PE:51 PK:92 PH:63 PN:870 PL:48 PM:508 ZM:260 EH:212 EE:372 EG:20 ZA:27 EC:593 IT:39 VN:84 SB:677 ET:251 SO:252 ZW:263 SA:966 ES:34 ER:291 ME:382 MD:373 MG:261 MA:212 MC:377 UZ:998 MM:95 ML:223 MO:853 MN:976 MH:692 MK:389 MU:230 MT:356 MW:265 MV:960 MQ:596 MP:1670 MS:1664 MR:222 IM:441624 UG:256 TZ:255 MY:60 MX:52 IL:972 FR:33 IO:246 SH:290 FI:358 FJ:679 FK:500 FM:691 FO:298 NI:505 NL:31 NO:47 NA:264 VU:678 NC:687 NE:227 NF:672 NG:234 NZ:64 NP:977 NR:674 NU:683 CK:682 CI:225 CH:41 CO:57 CN:86 CM:237 CL:56 CC:61 CA:1 CG:242 CF:236 CD:243 CZ:420 CY:357 CX:61 CR:506 CW:599 CV:238 CU:53 SZ:268 SY:963 SX:599 KG:996 KE:254 SS:211 SR:597 KI:686 KH:855 KN:1869 KM:269 ST:239 SK:421 KR:82 SI:386 KP:850 KW:965 SN:221 SM:378 SL:232 SC:248 KZ:7 KY:1345 SG:65 SE:46 SD:249 DO:1809,1829 DM:1767 DJ:253 DK:45 VG:1284 DE:49 YE:967 DZ:213 US:1 UY:598 YT:262 UM:1 LB:961 LC:1758 LA:856 TV:688 TW:886 TT:1868 TR:90 LK:94 LI:423 LV:371 TO:676 LT:370 LU:352 LR:231 LS:266 TH:66 TG:228 TD:235 TC:1649 LY:218 VA:379 VC:1784 AE:971 AD:376 AG:1268 AF:93 AI:1264 VI:1340 IS:354 IR:98 AM:374 AL:355 AO:244 AS:1684 AR:54 AU:61 AT:43 AW:297 IN:91 AX:35818 AZ:994 IE:353 ID:62 UA:380 QA:974 MZ:258 XK:383
