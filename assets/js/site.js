@@ -432,10 +432,8 @@ function renderCal(){
     // disponível como dia de saída (só as noites contam como ocupadas)
     const isUnavail = !isSelectable;
     if(isUnavail) el.classList.add('unavail');
-    // Esbatidos (não a vermelho): dias passados e saídas que não cumprem a estadia mínima
-    const isTooShort = choosingCheckout && dateStr > selStart && nightsBetween(selStart, dateStr) < MINIMUM_STAY_NIGHTS
-      && isRangeFree(selStart, dateStr);
-    if(isUnavail && (dateStr < minimumCheckInDate || isTooShort)) el.classList.add('past');
+    // Dias que não se podem escolher ficam esbatidos (ocupados ou sem estadia mínima possível); os passados quase invisíveis
+    if(isUnavail && dateStr < minimumCheckInDate) el.classList.add('past');
     if(dateStr===getPortugalDateString())el.classList.add('today');
     el.dataset.dragDate=dateStr;
     if(!isUnavail){el.dataset.date=dateStr;el.onclick=()=>selectDay(dateStr);}
