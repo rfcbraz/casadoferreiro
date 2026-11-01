@@ -152,7 +152,8 @@ h2 em{font-style:italic;color:var(--accent)}
 .legend-dot{width:10px;height:10px;border-radius:2px}
 .avail-grid>div:last-child{display:flex;flex-direction:column}
 .avail-rooms-list{display:flex;flex-direction:column;gap:.75rem}
-.avail-room{background:var(--darkm);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius);padding:1.2rem 1.5rem;display:flex;align-items:center;justify-content:space-between;transition:border-color .2s}
+.avail-room{background:var(--darkm);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius);padding:1.2rem 1.5rem;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;transition:border-color .2s}
+.avail-occupied{flex-basis:100%;margin-top:.6rem;padding-top:.6rem;border-top:1px solid rgba(255,255,255,.06);font-size:.75rem;color:rgba(255,255,255,.75)}
 .avail-room:hover{border-color:rgba(201,137,58,.3)}
 .avail-room-name{font-family:'Cormorant Garamond',serif;font-size:1.1rem;color:var(--white)}
 .avail-room-type{font-size:.72rem;color:var(--stone);text-transform:uppercase;letter-spacing:.08em;margin-top:.1rem}

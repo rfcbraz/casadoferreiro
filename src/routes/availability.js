@@ -38,7 +38,7 @@ router.get('/', async (req, res, next) => {
           { checkOut: { gt: ciDate } },
         ],
       },
-      select: { roomId: true },
+      select: { roomId: true, checkIn: true, checkOut: true },
     });
 
     const bookedIds = bookedRoomIds.map(r => r.roomId);
@@ -46,11 +46,23 @@ router.get('/', async (req, res, next) => {
     // Quartos com datas bloqueadas no período
     const blockedRoomIds = await prisma.blockedDate.findMany({
       where: blockedConflictWhere(ciDate, coDate),
-      select: { roomId: true },
+      select: { roomId: true, date: true },
     });
 
     const blockedIds = blockedRoomIds.map(r => r.roomId);
     const unavailableIds = [...new Set([...bookedIds, ...blockedIds])];
+
+    // Noites ocupadas de cada unidade dentro do período (só datas, sem motivos nem hóspedes),
+    // para o site dizer em que dias a unidade não está livre
+    const occupied = {};
+    const addNight = (roomId, day) => { (occupied[roomId] ||= new Set()).add(day.toISOString().slice(0, 10)); };
+    bookedRoomIds.forEach(r => {
+      const from = r.checkIn > ciDate ? r.checkIn : ciDate;
+      const to = r.checkOut < coDate ? r.checkOut : coDate;
+      for (let d = new Date(from); d < to; d = new Date(d.getTime() + 86400000)) addNight(r.roomId, d);
+    });
+    blockedRoomIds.forEach(b => addNight(b.roomId, b.date));
+    const occupiedNights = Object.fromEntries(Object.entries(occupied).map(([id, days]) => [id, [...days].sort()]));
 
     const rooms = await prisma.room.findMany({
       where: {
@@ -77,6 +89,7 @@ router.get('/', async (req, res, next) => {
       nights,
       minimumStayNights: MINIMUM_STAY_NIGHTS,
       availableRooms,
+      occupiedNights,
     });
   } catch (err) { next(err); }
 });
