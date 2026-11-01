@@ -229,6 +229,25 @@ router.get('/:id', requireAuth, async (req, res, next) => {
 });
 
 // GET /api/reservations — listar todas (admin)
+// Reservas canceladas/recusadas antes de "Limpar canceladas" deixam de aparecer na lista do painel
+// (continuam guardadas na base de dados)
+const CLEARED_AT_KEY = 'reservationsClearedAt';
+const CLOSED_STATUSES = ['CANCELLED', 'DECLINED'];
+
+// POST /api/reservations/clear-closed — esconder da lista as canceladas/recusadas até agora
+router.post('/clear-closed', requireAuth, async (req, res, next) => {
+  try {
+    const now = new Date();
+    const hidden = await prisma.reservation.count({ where: { status: { in: CLOSED_STATUSES }, updatedAt: { lte: now } } });
+    await prisma.setting.upsert({
+      where: { key: CLEARED_AT_KEY },
+      update: { value: now.toISOString() },
+      create: { key: CLEARED_AT_KEY, value: now.toISOString() },
+    });
+    res.json({ hidden });
+  } catch (err) { next(err); }
+});
+
 router.get('/', requireAuth, async (req, res, next) => {
   try {
     const { status, roomId, from, to } = req.query;
@@ -242,6 +261,8 @@ router.get('/', requireAuth, async (req, res, next) => {
       if (from) where.checkIn.gte = new Date(from);
       if (to) where.checkIn.lte = new Date(to);
     }
+    const clearedAt = await prisma.setting.findUnique({ where: { key: CLEARED_AT_KEY } });
+    if (clearedAt) where.NOT = { status: { in: CLOSED_STATUSES }, updatedAt: { lte: new Date(clearedAt.value) } };
 
     const [reservations, total] = await Promise.all([
       prisma.reservation.findMany({

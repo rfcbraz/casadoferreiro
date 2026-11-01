@@ -276,6 +276,24 @@ async function updateReservationStatus(id, status) {
   } catch(err) { showToast('Erro ao atualizar reserva.'); }
 }
 
+// Esconde da lista as canceladas e recusadas até agora; as que forem canceladas depois continuam a aparecer
+async function clearClosedReservations() {
+  if (!adminToken) return;
+  if (!window.confirm('Esconder da lista todas as reservas canceladas e recusadas até agora? Não são apagadas da base de dados.')) return;
+  try {
+    const res = await fetch(`${API}/reservations/clear-closed`, { method: 'POST', headers: { Authorization: `Bearer ${adminToken}` } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showToast(data.error || 'Não foi possível limpar a lista.');
+      return;
+    }
+    showToast(`✓ ${data.hidden} reserva(s) cancelada(s)/recusada(s) escondida(s).`);
+    await loadAdminReservations(adminReservationsFilter);
+  } catch(err) {
+    showToast('Erro de ligação ao limpar a lista.');
+  }
+}
+
 async function deleteDecidedReservation(id) {
   if (!adminToken) return;
   if (!window.confirm('Apagar permanentemente esta reserva? Esta ação não pode ser anulada.')) return;
