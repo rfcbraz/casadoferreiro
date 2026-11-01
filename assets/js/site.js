@@ -1082,13 +1082,14 @@ function renderAvailRooms(availableRooms, checkIn, checkOut, occupiedNights = {}
 
   const visibleRooms = (allRooms || []).filter(room => ['T2', 'T3'].includes((room.type || '').toUpperCase()));
 
+  // Sem datas ainda não se sabe se está livre: sem estado (o espaço fica para o preço não mudar de sítio)
   if (!checkIn || !checkOut) {
     visibleRooms.forEach(r => {
       const selected = r.id === selectedAvailabilityRoomId;
       list.innerHTML += `
         <div class="avail-room${selected ? ' is-selected' : ''}" data-room-id="${r.id}">
           <div><div class="avail-room-name">${translateText(r.name)}</div><div class="avail-room-type">${r.type}</div></div>
-          <div class="avail-status"><div class="status-dot avail"></div>${translateText('Disponível')}</div>
+          <div class="avail-status" aria-hidden="true"></div>
           <div class="avail-price">€${new Intl.NumberFormat(currentLanguage).format(r.pricePerNight)}<small>${translateText('/ noite')}</small></div>
           <button class="btn-book" data-select-room type="button" aria-pressed="${selected}" style="font-size:.7rem;padding:.4rem .9rem" onclick="selectAvailabilityRoom('${r.id}')">${translateText(selected ? 'Selecionado' : 'Selecionar')}</button>
         </div>`;
