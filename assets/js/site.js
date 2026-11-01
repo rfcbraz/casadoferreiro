@@ -1115,9 +1115,8 @@ function renderAvailRooms(availableRooms, checkIn, checkOut, occupiedNights = {}
           : `<div class="avail-price">€${new Intl.NumberFormat(currentLanguage).format(r.pricePerNight)}<small>${translateText('/ noite')}</small></div>`}
         ${isAvail
           ? `<button class="btn-book" data-select-room type="button" aria-pressed="${selected}" style="font-size:.7rem;padding:.4rem .9rem" onclick="selectAvailabilityRoom('${r.id}')">${translateText(selected ? 'Selecionado' : 'Selecionar')}</button>`
-          : `<span style="font-size:.72rem;color:var(--stone)">${translateText('Ocupado')}</span>`
+          : `<div class="avail-busy">${translateText('Ocupado')}${occupiedText ? `<small>${occupiedText}</small>` : ''}</div>`
         }
-        ${occupiedText ? `<div class="avail-occupied">${translateText('Noites ocupadas:')} ${occupiedText}</div>` : ''}
       </div>`;
   });
 }
