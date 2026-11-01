@@ -279,7 +279,7 @@ async function updateReservationStatus(id, status) {
 // Esconde da lista as canceladas e recusadas até agora; as que forem canceladas depois continuam a aparecer
 async function clearClosedReservations() {
   if (!adminToken) return;
-  if (!window.confirm('Esconder da lista todas as reservas canceladas e recusadas até agora? Não são apagadas da base de dados.')) return;
+  if (!window.confirm('Esconder do separador "Todas" as reservas canceladas e recusadas até agora? Continuam visíveis em "Canceladas" e "Recusadas".')) return;
   try {
     const res = await fetch(`${API}/reservations/clear-closed`, { method: 'POST', headers: { Authorization: `Bearer ${adminToken}` } });
     const data = await res.json().catch(() => ({}));

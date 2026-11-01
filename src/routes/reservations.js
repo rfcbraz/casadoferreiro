@@ -229,8 +229,8 @@ router.get('/:id', requireAuth, async (req, res, next) => {
 });
 
 // GET /api/reservations — listar todas (admin)
-// Reservas canceladas/recusadas antes de "Limpar canceladas" deixam de aparecer na lista do painel
-// (continuam guardadas na base de dados)
+// Reservas canceladas/recusadas antes de "Limpar canceladas" deixam de aparecer na lista "Todas" do painel
+// (continuam nos separadores Canceladas e Recusadas e guardadas na base de dados)
 const CLEARED_AT_KEY = 'reservationsClearedAt';
 const CLOSED_STATUSES = ['CANCELLED', 'DECLINED'];
 
@@ -261,7 +261,7 @@ router.get('/', requireAuth, async (req, res, next) => {
       if (from) where.checkIn.gte = new Date(from);
       if (to) where.checkIn.lte = new Date(to);
     }
-    const clearedAt = await prisma.setting.findUnique({ where: { key: CLEARED_AT_KEY } });
+    const clearedAt = status ? null : await prisma.setting.findUnique({ where: { key: CLEARED_AT_KEY } });
     if (clearedAt) where.NOT = { status: { in: CLOSED_STATUSES }, updatedAt: { lte: new Date(clearedAt.value) } };
 
     const [reservations, total] = await Promise.all([
