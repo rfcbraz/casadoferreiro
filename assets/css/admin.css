@@ -112,6 +112,16 @@ a.admin-close{display:block;text-align:center;text-decoration:none}
 .ical-copy{display:flex;gap:.5rem}
 .ical-copy input{flex:1;min-width:0;font-size:.78rem!important;color:var(--muted)!important}
 .admin-cal-day.imported{background:#dbe4f0;color:#33507a;cursor:not-allowed}
+.admin-cal-day.imported.airbnb{background:#ede4fb;color:#5b3a9b}
+.admin-month-group{margin-bottom:1rem}
+.admin-month-group:last-child{margin-bottom:0}
+.admin-month-source{display:flex;align-items:center;gap:.5rem;font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--dark);margin-bottom:.35rem}
+.admin-month-stay{font-size:.82rem;color:var(--muted);padding:.2rem 0 .2rem 1.1rem}
+.admin-legend-dot{width:10px;height:10px;border-radius:2px;flex:none}
+.admin-legend-dot.reserved{background:#fee2e2;border:1px solid #fca5a5}
+.admin-legend-dot.booking{background:#dbe4f0;border:1px solid #9fb3cf}
+.admin-legend-dot.airbnb{background:#ede4fb;border:1px solid #c4b0ec}
+.admin-legend-dot.blocked{background:#5a1d1d;border:1px solid #5a1d1d}
 .admin-more{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.5rem;font-size:.8rem;color:var(--muted)}
 .admin-password-btn{margin-bottom:.5rem}
 .admin-modal{position:fixed;inset:0;z-index:800;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(42,33,24,.7);backdrop-filter:blur(4px)}

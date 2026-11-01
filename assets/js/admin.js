@@ -960,7 +960,7 @@ async function loadRoomAvailability() {
     adminOccupiedDates = new Set(data.occupiedDates || []);
     const blocks = data.blockedDates || [];
     adminBlockedDates = new Set(blocks.filter(b => !IMPORTED_SOURCE_LABELS[b.source]).map(b => b.date));
-    adminImportedDates = new Map(blocks.filter(b => IMPORTED_SOURCE_LABELS[b.source]).map(b => [b.date, IMPORTED_SOURCE_LABELS[b.source]]));
+    adminImportedDates = new Map(blocks.filter(b => IMPORTED_SOURCE_LABELS[b.source]).map(b => [b.date, b.source]));
   } catch(err) {
     console.error('Erro disponibilidade admin:', err);
     showToast('Não foi possível carregar a disponibilidade.');
@@ -1033,10 +1033,11 @@ function renderAdminCal() {
       el.title = 'Data passada';
     } else if (adminOccupiedDates.has(dateStr)) {
       el.classList.add('reserved');
-      el.title = 'Reservado (não pode ser bloqueado)';
+      el.title = 'Reservado no website (não pode ser bloqueado)';
     } else if (adminImportedDates.has(dateStr)) {
-      el.classList.add('imported');
-      el.title = `Ocupado no ${adminImportedDates.get(dateStr)} (sincronizado automaticamente)`;
+      const source = adminImportedDates.get(dateStr);
+      el.classList.add('imported', source === 'AIRBNB' ? 'airbnb' : 'booking');
+      el.title = `Ocupado no ${IMPORTED_SOURCE_LABELS[source]} (sincronizado automaticamente)`;
     } else if (adminBlockedDates.has(dateStr)) {
       el.classList.add('blocked');
       el.title = 'Bloqueado';
@@ -1113,7 +1114,19 @@ function updateSelectedDatesPanel() {
   el.innerHTML = rows.join('');
 }
 
-// Reservas e bloqueios do mês que está no calendário
+// Junta datas seguidas em intervalos: ['2026-11-13','2026-11-14'] → [{ start: '2026-11-13', end: '2026-11-14' }]
+function groupAdminDates(dates) {
+  const ranges = [];
+  [...dates].sort().forEach(date => {
+    const last = ranges[ranges.length - 1];
+    if (last && shiftDateString(last.end, 1) === date) last.end = date;
+    else ranges.push({ start: date, end: date });
+  });
+  return ranges;
+}
+
+// Reservas e bloqueios do mês que está no calendário, por origem.
+// As estadias contam-se em todo o período carregado, para uma estadia que atravessa o mês aparecer inteira.
 function renderMonthReservations() {
   const el = document.getElementById('admin-month-reservations');
   if (!el) return;
@@ -1129,17 +1142,34 @@ function renderMonthReservations() {
     el.textContent = 'Sem reservas ou bloqueios neste mês.';
     return;
   }
-  let html = '';
-  if (occupied.length > 0) {
-    html += `<div style="margin-bottom:.75rem"><strong style="font-size:.78rem;color:var(--dark)">${occupied.length} dia(s) reservado(s)</strong></div>`;
-  }
-  if (imported.length > 0) {
-    html += `<div style="margin-bottom:.75rem"><strong style="font-size:.78rem;color:var(--dark)">${imported.length} noite(s) ocupada(s) no Booking.com/Airbnb</strong></div>`;
-  }
-  if (blocked.length > 0) {
-    html += `<div><strong style="font-size:.78rem;color:var(--dark)">${blocked.length} dia(s) bloqueado(s):</strong><div style="margin-top:.4rem">${blocked.map(date => `<span style="display:inline-block;background:#5a1d1d;color:#f3dede;font-size:.75rem;padding:.2rem .6rem;border-radius:2px;margin:.2rem">${formatAdminShortDate(date)}</span>`).join('')}</div></div>`;
-  }
-  el.innerHTML = html;
+  const monthStart = `${prefix}01`;
+  const monthEnd = `${prefix}31`;
+  const inMonth = range => range.start <= monthEnd && range.end >= monthStart;
+  // Noites ocupadas: entrada no 1.º dia, saída no dia a seguir à última noite
+  const stayText = range => {
+    const nights = Math.round((new Date(range.end) - new Date(range.start)) / 86400000) + 1;
+    return `<strong>${formatAdminShortDate(range.start)}</strong> → <strong>${formatAdminShortDate(shiftDateString(range.end, 1))}</strong> · ${nights} noite${nights > 1 ? 's' : ''}`;
+  };
+  const daysText = range => {
+    const days = Math.round((new Date(range.end) - new Date(range.start)) / 86400000) + 1;
+    return range.start === range.end
+      ? `<strong>${formatAdminShortDate(range.start)}</strong>`
+      : `<strong>${formatAdminShortDate(range.start)}</strong> a <strong>${formatAdminShortDate(range.end)}</strong> · ${days} dias`;
+  };
+  const importedFrom = source => [...adminImportedDates].filter(([, s]) => s === source).map(([date]) => date);
+  const groups = [
+    { label: 'Website', css: 'reserved', ranges: groupAdminDates(adminOccupiedDates), text: stayText },
+    { label: 'Booking.com', css: 'booking', ranges: groupAdminDates(importedFrom('BOOKING_COM')), text: stayText },
+    { label: 'Airbnb', css: 'airbnb', ranges: groupAdminDates(importedFrom('AIRBNB')), text: stayText },
+    { label: 'Bloqueado manualmente', css: 'blocked', ranges: groupAdminDates(adminBlockedDates), text: daysText },
+  ];
+  el.innerHTML = groups
+    .map(group => ({ ...group, ranges: group.ranges.filter(inMonth) }))
+    .filter(group => group.ranges.length)
+    .map(group => `<div class="admin-month-group">
+      <div class="admin-month-source"><span class="admin-legend-dot ${group.css}"></span>${group.label}</div>
+      ${group.ranges.map(range => `<div class="admin-month-stay">${group.text(range)}</div>`).join('')}
+    </div>`).join('');
 }
 
 async function changeSelectedDates(method) {
