@@ -298,7 +298,7 @@ async function deleteDecidedReservation(id) {
   }
 }
 
-// ── Gestão de Quartos ────────────────────────────────────
+// ── Gestão de Alojamentos ───────────────────────────────────
 async function loadAdminRooms() {
   if (!adminToken) return;
   const tbody = document.getElementById('admin-rooms-body');
@@ -307,20 +307,22 @@ async function loadAdminRooms() {
     const res = await fetch(`${API}/rooms/admin`, { headers: { Authorization: `Bearer ${adminToken}` } });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      throw new Error(data.error || `Erro ao carregar quartos (HTTP ${res.status}).`);
+      throw new Error(data.error || `Erro ao carregar alojamentos (HTTP ${res.status}).`);
     }
     if (!Array.isArray(data)) {
-      throw new Error('Resposta inválida ao carregar quartos.');
+      throw new Error('Resposta inválida ao carregar alojamentos.');
     }
     adminRooms = data;
 
     // Only active units can have availability managed for new bookings.
     const sel = document.getElementById('avail-room-select');
     if (sel) {
-      sel.innerHTML = '<option value="">Seleciona um quarto...</option>';
+      // Mantém a unidade escolhida; por omissão, o T2
       const previous = sel.value;
-      adminRooms.filter(r => r.isActive).forEach(r => sel.innerHTML += `<option value="${r.id}">${escapeAdminHtml(r.name)}</option>`);
-      if ([...sel.options].some(option => option.value === previous)) sel.value = previous;
+      const activeRooms = adminRooms.filter(r => r.isActive);
+      sel.innerHTML = activeRooms.map(r => `<option value="${r.id}">${escapeAdminHtml(r.name)}</option>`).join('');
+      const fallback = activeRooms.find(r => (r.type || '').toUpperCase() === 'T2') || activeRooms[0];
+      sel.value = activeRooms.some(r => r.id === previous) ? previous : (fallback?.id || '');
     }
 
     tbody.innerHTML = adminRooms.map(r => `
@@ -336,8 +338,8 @@ async function loadAdminRooms() {
         </div>
       </div>`).join('');
   } catch(err) {
-    console.error('Erro quartos:', err);
-    tbody.innerHTML = `<div style="padding:2rem;color:#dc2626;font-size:.85rem">${escapeAdminHtml(err.message || 'Não foi possível carregar os quartos.')}</div>`;
+    console.error('Erro alojamentos:', err);
+    tbody.innerHTML = `<div style="padding:2rem;color:#dc2626;font-size:.85rem">${escapeAdminHtml(err.message || 'Não foi possível carregar os alojamentos.')}</div>`;
   }
 }
 
@@ -538,7 +540,7 @@ async function saveRoom() {
     });
     if (res.ok) {
       closeEditRoom();
-      showToast('✓ Quarto atualizado com sucesso!');
+      showToast('✓ Alojamento atualizado com sucesso!');
       await loadAdminRooms();
     } else {
       const err = await res.json();
@@ -885,7 +887,7 @@ async function toggleRoomActive(id, currentActive) {
       showToast(data.error || 'Não foi possível atualizar a unidade.');
       return;
     }
-    showToast(`Quarto ${currentActive ? 'desativado' : 'ativado'}.`);
+    showToast(`Alojamento ${currentActive ? 'desativado' : 'ativado'}.`);
     await loadAdminRooms();
   } catch(err) { showToast('Erro de ligação.'); }
 }
@@ -1001,6 +1003,8 @@ function renderAdminCal() {
   const grid = document.getElementById('admin-cal-grid');
   if (!titleEl || !grid) return;
 
+  const calArea = document.getElementById('admin-cal-area');
+  if (calArea) calArea.hidden = !document.getElementById('avail-room-select')?.value;
   titleEl.textContent = `${months[adminCalMonth]} ${adminCalYear}`;
   grid.innerHTML = '';
   const today = getPortugalDateString();
@@ -1118,7 +1122,7 @@ function renderMonthReservations() {
   const blocked = [...adminBlockedDates].filter(date => date.startsWith(prefix)).sort();
   const imported = [...adminImportedDates.keys()].filter(date => date.startsWith(prefix));
   if (!document.getElementById('avail-room-select')?.value) {
-    el.textContent = 'Seleciona um quarto para ver as reservas.';
+    el.textContent = 'Seleciona um alojamento para ver as reservas.';
     return;
   }
   if (occupied.length === 0 && blocked.length === 0 && imported.length === 0) {
@@ -1140,7 +1144,7 @@ function renderMonthReservations() {
 
 async function changeSelectedDates(method) {
   const roomId = document.getElementById('avail-room-select')?.value;
-  if (!roomId) { showToast('Seleciona um quarto primeiro.'); return; }
+  if (!roomId) { showToast('Seleciona um alojamento primeiro.'); return; }
   if (adminRangeStart) { showToast('Falta escolher a última data do intervalo.'); return; }
   const selected = adminSelectedDates();
   // Bloquear: só os dias ainda livres; desbloquear: só os que estão bloqueados
