@@ -1062,7 +1062,7 @@ function continueAvailabilityBooking() {
   openBooking();
 }
 
-// Agrupa noites seguidas: ['2026-11-13','2026-11-14','2026-11-20'] → "13–14 nov. · 20 nov."
+// Agrupa noites seguidas: ['2026-11-13','2026-11-14','2026-11-20'] → ['13–14 nov.', '20 nov.']
 function formatOccupiedNights(nights) {
   const format = new Intl.DateTimeFormat(currentLanguage, { day: 'numeric', month: 'short', timeZone: 'UTC' });
   const toDate = day => new Date(`${day}T00:00:00Z`);
@@ -1072,7 +1072,17 @@ function formatOccupiedNights(nights) {
     if (last && nightsBetween(last.end, day) === 1) last.end = day;
     else ranges.push({ start: day, end: day });
   });
-  return ranges.map(({ start, end }) => start === end ? format.format(toDate(start)) : format.formatRange(toDate(start), toDate(end))).join(' · ');
+  return ranges.map(({ start, end }) => start === end ? format.format(toDate(start)) : format.formatRange(toDate(start), toDate(end)));
+}
+
+// No máximo duas linhas, para o cartão não crescer: com mais períodos, a 2.ª linha diz quantos faltam
+// e a lista completa fica no texto que aparece ao passar o rato
+function occupiedNightsHtml(ranges) {
+  if (!ranges.length) return '';
+  const lines = ranges.length <= 2
+    ? ranges
+    : [ranges[0], translateTemplate('+ {{count}} períodos', { count: ranges.length - 1 })];
+  return `<small title="${ranges.join(' · ')}">${lines.map(line => `<span>${line}</span>`).join('')}</small>`;
 }
 
 function renderAvailRooms(availableRooms, checkIn, checkOut, occupiedNights = {}) {
@@ -1103,7 +1113,7 @@ function renderAvailRooms(availableRooms, checkIn, checkOut, occupiedNights = {}
   visibleRooms.forEach(r => {
     const isAvail = availIds.has(r.id);
     const selected = r.id === selectedAvailabilityRoomId;
-    const occupiedText = !isAvail ? formatOccupiedNights(occupiedNights[r.id]) : '';
+    const occupiedText = !isAvail ? occupiedNightsHtml(formatOccupiedNights(occupiedNights[r.id])) : '';
     list.innerHTML += `
       <div class="avail-room${selected ? ' is-selected' : ''}" data-room-id="${r.id}" style="${!isAvail ? 'opacity:.6' : ''}">
         <div><div class="avail-room-name">${translateText(r.name)}</div><div class="avail-room-type">${r.type}</div></div>
@@ -1116,7 +1126,7 @@ function renderAvailRooms(availableRooms, checkIn, checkOut, occupiedNights = {}
           : `<div class="avail-price">€${new Intl.NumberFormat(currentLanguage).format(r.pricePerNight)}<small>${translateText('/ noite')}</small></div>`}
         ${isAvail
           ? `<button class="btn-book" data-select-room type="button" aria-pressed="${selected}" style="font-size:.7rem;padding:.4rem .9rem" onclick="selectAvailabilityRoom('${r.id}')">${translateText(selected ? 'Selecionado' : 'Selecionar')}</button>`
-          : `<div class="avail-busy">${translateText('Ocupado')}${occupiedText ? `<small>${occupiedText}</small>` : ''}</div>`
+          : `<div class="avail-busy">${translateText('Ocupado')}${occupiedText}</div>`
         }
       </div>`;
   });
