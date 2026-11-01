@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
 const { requireAuth } = require('../middleware/auth');
 const { getPortugalToday } = require('../lib/reservationRules');
-const { STAY_STATUSES, EXTERNAL_SOURCES, monthRange, stayNights, monthRevenue, monthOccupancy } = require('../lib/stats');
+const { STAY_STATUSES, EXTERNAL_SOURCES, DAY_MS, monthRange, stayNights, monthRevenue, monthOccupancy, externalCheckIns } = require('../lib/stats');
 const { CRIBS_TOTAL_KEY, getCribsTotal, loadCribRanges, cribsUsedByNight, eachNight, checkCribs, cribsError } = require('../lib/cribs');
 const router = express.Router();
 
@@ -56,12 +56,16 @@ router.get('/me', requireAuth, (req, res) => {
 });
 
 // GET /api/admin/stats — números do painel
+const UPCOMING_DAYS = 15;
 router.get('/stats', requireAuth, async (req, res, next) => {
   try {
     const now = new Date();
     const today = getPortugalToday(now);
     const thisMonth = monthRange(today);
     const lastMonth = monthRange(today, -1);
+    // Próximas chegadas: de hoje até daqui a UPCOMING_DAYS dias
+    const todayStart = new Date(`${today}T00:00:00Z`);
+    const upcomingEnd = new Date(todayStart.getTime() + UPCOMING_DAYS * DAY_MS);
 
     const [
       totalReservations,
@@ -70,10 +74,11 @@ router.get('/stats', requireAuth, async (req, res, next) => {
       monthReservations,
       externalBlocks,
       upcomingCheckIns,
+      upcomingBlocks,
     ] = await Promise.all([
       prisma.reservation.count({ where: { status: { notIn: ['CANCELLED', 'DECLINED'] } } }),
       prisma.reservation.count({ where: { status: { in: ['PENDING', 'AWAITING_PAYMENT'] } } }),
-      prisma.room.findMany({ where: { isActive: true }, select: { id: true } }),
+      prisma.room.findMany({ where: { isActive: true }, select: { id: true, name: true } }),
       // Estadias com noites no mês anterior ou no atual
       prisma.reservation.findMany({
         where: { status: { in: STAY_STATUSES }, checkIn: { lt: thisMonth.end }, checkOut: { gt: lastMonth.start } },
@@ -84,14 +89,19 @@ router.get('/stats', requireAuth, async (req, res, next) => {
         select: { roomId: true, source: true, date: true },
       }),
       prisma.reservation.findMany({
-        where: { status: { in: STAY_STATUSES }, checkIn: { gte: new Date(`${today}T00:00:00Z`) } },
-        take: 5,
+        where: { status: { in: STAY_STATUSES }, checkIn: { gte: todayStart, lte: upcomingEnd } },
         orderBy: { checkIn: 'asc' },
         include: { room: true, guest: true },
+      }),
+      // Do dia anterior (para saber se a estadia já começou) até 60 dias depois (para saber a saída)
+      prisma.blockedDate.findMany({
+        where: { source: { in: EXTERNAL_SOURCES }, date: { gte: new Date(todayStart.getTime() - DAY_MS), lt: new Date(upcomingEnd.getTime() + 60 * DAY_MS) } },
+        select: { roomId: true, source: true, date: true },
       }),
     ]);
 
     const roomIds = rooms.map(room => room.id);
+    const roomNames = new Map(rooms.map(room => [room.id, room.name]));
     const monthRev = monthRevenue(monthReservations, thisMonth);
     const lastMonthRev = monthRevenue(monthReservations, lastMonth);
     const occupancy = monthOccupancy(monthReservations, externalBlocks, roomIds, thisMonth);
@@ -115,7 +125,10 @@ router.get('/stats', requireAuth, async (req, res, next) => {
       availableNights: occupancy.availableNights,
       occupancyToday: [...occupiedToday].filter(id => roomIds.includes(id)).length,
       totalRooms: roomIds.length,
+      upcomingDays: UPCOMING_DAYS,
       upcomingCheckIns,
+      externalCheckIns: externalCheckIns(upcomingBlocks, today, upcomingEnd.toISOString().slice(0, 10))
+        .map(stay => ({ ...stay, roomName: roomNames.get(stay.roomId) || '' })),
     });
   } catch (err) { next(err); }
 });

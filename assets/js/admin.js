@@ -162,18 +162,33 @@ async function loadAdminStats() {
     if (pending) pending.textContent = `${d.pendingReservations ?? 0} pendente(s)`;
     if (occ) occ.textContent = (d.occupancyRate ?? 0) + '%';
     if (occDetail) occDetail.textContent = `${d.occupiedNights ?? 0} de ${d.availableNights ?? 0} noites · ${d.occupancyToday ?? 0} de ${d.totalRooms ?? 0} unidade(s) ocupada(s) hoje`;
-    if (upcoming) upcoming.textContent = d.upcomingCheckIns?.length ?? 0;
+    // Reservas do site e chegadas do Booking/Airbnb (estas sem dados do hóspede: o iCal só envia as datas)
+    const sourceNames = { BOOKING_COM: 'Booking.com', AIRBNB: 'Airbnb' };
+    const arrivals = [
+      ...(d.upcomingCheckIns || []).map(r => ({
+        checkIn: r.checkIn, checkOut: r.checkOut, roomName: r.room.name,
+        who: `<div class="admin-guest-name">${escapeAdminHtml(r.contactName || r.guest.name)}</div><div class="admin-guest-email">${escapeAdminHtml(r.guest.email)}</div><div class="admin-ref">#${r.id.slice(0, 8).toUpperCase()}</div>`,
+      })),
+      ...(d.externalCheckIns || []).map(stay => ({
+        checkIn: stay.checkIn, checkOut: stay.checkOut, roomName: stay.roomName,
+        who: `<div class="admin-guest-name">Reserva ${sourceNames[stay.source] || stay.source}</div><div class="admin-guest-email">Detalhes no ${sourceNames[stay.source] || stay.source}</div>`,
+      })),
+    ].sort((a, b) => String(a.checkIn).localeCompare(String(b.checkIn)));
+    const shortDate = value => new Date(value).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+
+    if (upcoming) upcoming.textContent = arrivals.length;
+    setAdminText('stat-upcoming-sub', `Chegadas nos próximos ${d.upcomingDays ?? 15} dias`);
 
     if (upcomingList) {
-      if (!d.upcomingCheckIns || d.upcomingCheckIns.length === 0) {
-        upcomingList.innerHTML = '<div style="padding:1.5rem;color:var(--muted);font-size:.85rem">Sem check-ins próximos.</div>';
+      if (arrivals.length === 0) {
+        upcomingList.innerHTML = `<div style="padding:1.5rem;color:var(--muted);font-size:.85rem">Sem check-ins nos próximos ${d.upcomingDays ?? 15} dias.</div>`;
       } else {
-        upcomingList.innerHTML = d.upcomingCheckIns.map(r => `
+        upcomingList.innerHTML = arrivals.map(a => `
           <div class="admin-table-row" style="grid-template-columns:2fr 1.5fr 1fr 1fr">
-            <div><div class="admin-guest-name">${escapeAdminHtml(r.contactName || r.guest.name)}</div><div class="admin-guest-email">${escapeAdminHtml(r.guest.email)}</div><div class="admin-ref">#${r.id.slice(0, 8).toUpperCase()}</div></div>
-            <div><span class="admin-room-badge">${escapeAdminHtml(r.room.name)}</span></div>
-            <div style="font-size:.85rem">${new Date(r.checkIn).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})}</div>
-            <div style="font-size:.85rem">${new Date(r.checkOut).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})}</div>
+            <div>${a.who}</div>
+            <div><span class="admin-room-badge">${escapeAdminHtml(a.roomName)}</span></div>
+            <div style="font-size:.85rem">${shortDate(a.checkIn)}</div>
+            <div style="font-size:.85rem">${shortDate(a.checkOut)}</div>
           </div>`).join('');
       }
     }

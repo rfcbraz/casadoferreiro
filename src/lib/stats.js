@@ -63,4 +63,32 @@ function monthOccupancy(reservations, blockedDates, roomIds, range) {
   return { occupiedNights: occupied.size, availableNights: available, rate: available ? Math.round((occupied.size / available) * 100) : 0 };
 }
 
-module.exports = { STAY_STATUSES, EXTERNAL_SOURCES, monthRange, stayNights, monthRevenue, monthOccupancy };
+// Chegadas do Booking/Airbnb: o iCal só guarda noites, por isso cada bloco de noites seguidas
+// (por unidade e origem) conta como uma estadia. Só entram as que começam entre `from` e `to` (inclusive);
+// os bloqueios devem incluir o dia antes de `from` para não contar como chegada uma estadia já a decorrer.
+function externalCheckIns(blockedDates, from, to) {
+  const nightsByStay = new Map();
+  blockedDates
+    .filter(block => EXTERNAL_SOURCES.includes(block.source))
+    .forEach(block => {
+      const key = `${block.roomId}|${block.source}`;
+      if (!nightsByStay.has(key)) nightsByStay.set(key, new Set());
+      nightsByStay.get(key).add(dayString(block.date));
+    });
+  const nextDay = date => new Date(new Date(date).getTime() + DAY_MS).toISOString().slice(0, 10);
+  const previousDay = date => new Date(new Date(date).getTime() - DAY_MS).toISOString().slice(0, 10);
+  const stays = [];
+  nightsByStay.forEach((nights, key) => {
+    const [roomId, source] = key.split('|');
+    [...nights].sort()
+      .filter(date => !nights.has(previousDay(date)) && date >= from && date <= to)
+      .forEach(checkIn => {
+        let checkOut = nextDay(checkIn);
+        while (nights.has(checkOut)) checkOut = nextDay(checkOut);
+        stays.push({ roomId, source, checkIn, checkOut });
+      });
+  });
+  return stays.sort((a, b) => a.checkIn.localeCompare(b.checkIn));
+}
+
+module.exports = { STAY_STATUSES, EXTERNAL_SOURCES, DAY_MS, monthRange, stayNights, monthRevenue, monthOccupancy, externalCheckIns };

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { monthRange, monthRevenue, monthOccupancy } = require('./stats');
+const { monthRange, monthRevenue, monthOccupancy, externalCheckIns } = require('./stats');
 
 const october = monthRange('2026-10-17');
 const day = date => new Date(`${date}T00:00:00Z`);
@@ -32,4 +32,19 @@ test('ocupação junta reservas e Booking/Airbnb, sem bloqueios manuais nem repe
   ];
   const result = monthOccupancy(reservations, blocked, ['t2', 't3'], october);
   assert.deepEqual(result, { occupiedNights: 4, availableNights: 62, rate: 6 });
+});
+
+test('chegadas do Booking/Airbnb: cada bloco de noites seguidas é uma estadia', () => {
+  const block = (roomId, source, date) => ({ roomId, source, date: day(date) });
+  const blocks = [
+    block('t2', 'BOOKING_COM', '2026-11-13'), block('t2', 'BOOKING_COM', '2026-11-14'),
+    block('t3', 'BOOKING_COM', '2026-10-31'), block('t3', 'BOOKING_COM', '2026-11-01'), // já a decorrer
+    block('t3', 'AIRBNB', '2026-11-05'),
+    block('t3', 'MANUAL', '2026-11-08'), // dia fechado, não é chegada
+    block('t2', 'BOOKING_COM', '2026-11-20'), // depois do período
+  ];
+  assert.deepEqual(externalCheckIns(blocks, '2026-11-01', '2026-11-16'), [
+    { roomId: 't3', source: 'AIRBNB', checkIn: '2026-11-05', checkOut: '2026-11-06' },
+    { roomId: 't2', source: 'BOOKING_COM', checkIn: '2026-11-13', checkOut: '2026-11-15' },
+  ]);
 });
