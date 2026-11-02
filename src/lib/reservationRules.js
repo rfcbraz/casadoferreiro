@@ -4,8 +4,8 @@ const MAXIMUM_STAY_NIGHTS = 90;
 const MAXIMUM_ADVANCE_DAYS = 730;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 // Reservas com entrada no próprio dia são aceites até esta hora (Portugal)
-const SAME_DAY_CUTOFF_HOUR = 22;
-const CHECK_IN_DATE_ERROR = 'Essa data de entrada já não está disponível. Reservas para o próprio dia são aceites até às 22:00.';
+const SAME_DAY_CUTOFF_HOUR = 12;
+const CHECK_IN_DATE_ERROR = 'Essa data de entrada já não está disponível. Reservas para o próprio dia são aceites até às 12:00.';
 
 function getPortugalParts(now) {
   const dateParts = new Intl.DateTimeFormat('en-CA', {
@@ -25,7 +25,7 @@ function getPortugalToday(now = new Date()) {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
-// Hoje até às 22:00 (hora de Portugal); depois disso, amanhã
+// Hoje até às 12:00 (hora de Portugal); depois disso, amanhã
 function getMinimumCheckInDate(now = new Date()) {
   const parts = getPortugalParts(now);
   const daysAhead = Number(parts.hour) < SAME_DAY_CUTOFF_HOUR ? 0 : 1;

@@ -372,8 +372,8 @@ function getPortugalMinutesNow() {
   const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
   return Number(values.hour) * 60 + Number(values.minute);
 }
-// Reservas para o próprio dia até às 22:00 (hora de Portugal); depois disso, a partir de amanhã
-const SAME_DAY_CUTOFF_MINUTES = 22 * 60;
+// Reservas para o próprio dia até às 12:00 (hora de Portugal); depois disso, a partir de amanhã
+const SAME_DAY_CUTOFF_MINUTES = 12 * 60;
 function getMinimumCheckInDate() {
   const today = getPortugalDateString();
   return getPortugalMinutesNow() < SAME_DAY_CUTOFF_MINUTES ? today : shiftDateString(today, 1);
@@ -544,7 +544,7 @@ function selectDay(dateStr){
   const choosingCheckout = selStart && !selEnd;
   if (choosingCheckout && dateStr === selStart) { clearCalendarSelection(); return; }
   if (dateStr < getMinimumCheckInDate()) {
-    showToast('Essa data de entrada já não está disponível. Reservas para o próprio dia são aceites até às 22:00.');
+    showToast('Essa data de entrada já não está disponível. Reservas para o próprio dia são aceites até às 12:00.');
     return;
   }
   if(choosingCheckout && dateStr > selStart && nightsBetween(selStart, dateStr) < MINIMUM_STAY_NIGHTS){
@@ -1449,7 +1449,7 @@ function getBookingDateError(checkIn, checkOut) {
     return 'Selecione as datas de entrada e saída antes de reservar.';
   }
   if (checkIn < getMinimumCheckInDate()) {
-    return 'Essa data de entrada já não está disponível. Reservas para o próprio dia são aceites até às 22:00.';
+    return 'Essa data de entrada já não está disponível. Reservas para o próprio dia são aceites até às 12:00.';
   }
   const nights = Math.round((new Date(`${checkOut}T00:00:00`) - new Date(`${checkIn}T00:00:00`)) / 86400000);
   if (!Number.isFinite(nights) || nights < MINIMUM_STAY_NIGHTS) {
@@ -1596,7 +1596,7 @@ function validateCheckInInput(checkInId, checkOutId, updateCheckoutDate) {
   if (checkInInput.value && checkInInput.value < minimumDate) {
     checkInInput.value = '';
     document.getElementById(checkOutId).value = '';
-    showToast('Essa data de entrada já não está disponível. Reservas para o próprio dia são aceites até às 22:00.');
+    showToast('Essa data de entrada já não está disponível. Reservas para o próprio dia são aceites até às 12:00.');
   }
   updateCheckoutDate();
 }
@@ -1710,7 +1710,7 @@ async function confirmBooking() {
   const phone = `+${combinedDigits}`;
   if (!checkIn || !checkOut) { showToast('Por favor selecione as datas.'); return; }
   if (checkIn < getMinimumCheckInDate()) {
-    showToast('Essa data de entrada já não está disponível. Reservas para o próprio dia são aceites até às 22:00.');
+    showToast('Essa data de entrada já não está disponível. Reservas para o próprio dia são aceites até às 12:00.');
     return;
   }
   if (!roomId) { showToast('Por favor selecione um quarto.'); return; }
